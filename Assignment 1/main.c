@@ -30,11 +30,44 @@ int main()
         if (i == 2){
             char* string2[] = strtok(line, "_");
         }
+         if (i == 3){
+            char* string3[] = strtok(line, "_");
+        }
+         if (i == 4){
+            char* string4[] = strtok(line, "_");
+        }
+         if (i == 5){
+            char* string4[] = strtok(line, "_");
+        }
+         if (i == 6){
+            char* string6[] = strtok(line, "_");
+        }
+         if (i == 7){
+            char* string7[] = strtok(line, "_");
+        }
+         if (i == 8){
+            char* string8[] = strtok(line, "_");
+        }
+         if (i == 9){
+            char* string9[] = strtok(line, "_");
+        }
+        
 
     } 
     fclose(file);
-    window_width = atoi(string1[2]);
-    window_height = atoi(string2[2]);
+
+    int window_width = atoi(string1[2]);
+    int window_height = atoi(string2[2]);
+    int rph_intial = atoi(string3[2]);
+    double eta_intial = double(string4[2]);
+    int force_intial = atoi(string5[2]);
+    int mass = atoi(string6[1]);
+    int k_intial = atoi(string7[2]);
+    int working_area = atoi(string8[2]);
+    int t_intial = atoi(string9[2]);
+
+
+
 
  //check if pipes initialize
     if (pipe(fdIn) == -1) {

@@ -21,10 +21,6 @@ int main(int argc, char *argv[])
     int fdIn = atoi(argv[1]);
     char buffer[100];
 
-    // Assume fdW0 is a valid file descriptor for your pipe,
-    // opened somewhere earlier in your code.
-    // int fdW0 = ...; 
-
     // --- 1. SET UP TERMINAL ---
     // We MUST do this to read one char at a time
     struct termios old_tio, new_tio;
