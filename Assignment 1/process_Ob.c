@@ -21,12 +21,11 @@ int main(int argc, char *argv[])
     int fdOb = atoi(argv[1]);
     char buffer[100];
 
-    //generate random coordinates 
+
     while(1){
         //write it to pipe
-        x_coord = rand() % (0, string1[2]);
-        y_coord = rand() % (0, string2[2]);
-
+        int x_coord = rand() % window_width;
+        int y_coord = rand() % window_height;
         sprintf(buffer, "%d,%d", x_coord, y_coord);
         write(fdOb, buffer, strlen(buffer)+1);
         sleep(5);

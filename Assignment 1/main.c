@@ -9,6 +9,9 @@
 #include <curses.h>
 #include <sys/time.h>
 
+int window_width;
+int window_height;
+
 int main()
 {
     int fdIn[2], fdOb[2], fdTa[2];
@@ -16,7 +19,22 @@ int main()
     char buf[100];
     int toggle = 0;
 
+    FILE* file = fopen("Parameter_File.txt", "r"); 
+    char line[256]; 
+    int i = 0; 
+    while (fgets(line, sizeof(line), file)) { 
+        i++; 
+        if (i == 1){
+            char* string1[] = strtok(line, "_");
+        }
+        if (i == 2){
+            char* string2[] = strtok(line, "_");
+        }
 
+    } 
+    fclose(file);
+    window_width = atoi(string1[2]);
+    window_height = atoi(string2[2]);
 
  //check if pipes initialize
     if (pipe(fdIn) == -1) {

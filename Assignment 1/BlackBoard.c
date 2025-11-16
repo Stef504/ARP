@@ -50,6 +50,8 @@ int main(int argc, char *argv[]) {
     //Let ncurses read the input from Ob, Ta
     //calculate the force and let ncurses respond accordingly
 
+    system("./Ref_Win &"); 
+
     while (1){
         FD_ZERO(&readfds);
         FD_SET(fdIn, &readfds);
