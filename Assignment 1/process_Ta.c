@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 
         sprintf(buffer, "%d,%d", x_coord, y_coord);
         write(fdTa, buffer, strlen(buffer)+1);
-        sleep(5);
+        sleep(3);
     }
 
 }
