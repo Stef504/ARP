@@ -20,21 +20,7 @@ int main(int argc, char *argv[])
     //convert the argument to an integer file descriptor
     int fdTa = atoi(argv[1]);
     char buffer[100];
-    
-    FILE* file = fopen("Parameter_File.txt", "r"); 
-    char line[256]; 
-    int i = 0; 
-    while (fgets(line, sizeof(line), file)) { 
-        i++; 
-        if (i == 1){
-            char* string1[] = delimit(line, "_");
-        }
-        if (i == 2){
-            char* string2[] = delimit(line, "_");
-        }
 
-    } 
-    fclose(file);
 
     while(1){
         //write it to pipe

@@ -75,15 +75,15 @@ int main()
 
     }
 
-    pid_t W0=fork();
+    pid_t In=fork();
 
-        if (W0 < 0)
+        if (In < 0)
    {
     perror("Error in fork");
     return 1;
     }
 
-    if (W0 == 0)
+    if (In == 0)
     {
        
         // Child process
