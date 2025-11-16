@@ -9,64 +9,12 @@
 #include <curses.h>
 #include <sys/time.h>
 
-int window_width;
-int window_height;
-
 int main()
 {
     int fdIn[2], fdOb[2], fdTa[2];
  
     char buf[100];
     int toggle = 0;
-
-    FILE* file = fopen("Parameter_File.txt", "r"); 
-    char line[256]; 
-    int i = 0; 
-    while (fgets(line, sizeof(line), file)) { 
-        i++; 
-        if (i == 1){
-            char* string1[] = strtok(line, "_");
-        }
-        if (i == 2){
-            char* string2[] = strtok(line, "_");
-        }
-         if (i == 3){
-            char* string3[] = strtok(line, "_");
-        }
-         if (i == 4){
-            char* string4[] = strtok(line, "_");
-        }
-         if (i == 5){
-            char* string4[] = strtok(line, "_");
-        }
-         if (i == 6){
-            char* string6[] = strtok(line, "_");
-        }
-         if (i == 7){
-            char* string7[] = strtok(line, "_");
-        }
-         if (i == 8){
-            char* string8[] = strtok(line, "_");
-        }
-         if (i == 9){
-            char* string9[] = strtok(line, "_");
-        }
-        
-
-    } 
-    fclose(file);
-
-    int window_width = atoi(string1[2]);
-    int window_height = atoi(string2[2]);
-    int rph_intial = atoi(string3[2]);
-    double eta_intial = double(string4[2]);
-    int force_intial = atoi(string5[2]);
-    int mass = atoi(string6[1]);
-    int k_intial = atoi(string7[2]);
-    int working_area = atoi(string8[2]);
-    int t_intial = atoi(string9[2]);
-
-
 
 
  //check if pipes initialize
@@ -181,7 +129,7 @@ int main()
 
         // Execute process_P with fd[1] as a command-line argument
         
-        execvp("./process_Ob", fd_str); // launch another process if condition met
+        execlp("./process_Ob", "./process_Ob", fd_str, (char *)NULL);// launch another process if condition met
        
         // If exec fails
         perror("exec failed");
@@ -213,7 +161,7 @@ int main()
 
         // Execute process_P with fd[1] as a command-line argument
         
-        execvp("./process_Ta", fd_str); // launch another process if condition met
+        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");

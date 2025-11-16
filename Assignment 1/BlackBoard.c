@@ -8,9 +8,73 @@
 #define _XOPEN_SOURCE_EXTENDED
 #include <locale.h>
 #include <ncurses.h>
+
+int rph_intial;
+double eta_intial;
+int force_intial;
+int mass;
+int k_intial;
+int working_area;
+int t_intial;
+
+void Parameter_File() {
+    FILE* file = fopen("Parameter_File.txt", "r");
+    if (file == NULL) {
+        perror("Error opening Parameter_File.txt");
+        return;
+    }
+
+    char line[256];
+    int line_number = 0;
+
+    // --- 2. Read the file line by line ---
+    while (fgets(line, sizeof(line), file)) {
+        line_number++;
+
+        // --- 3. Tokenize the *current* line ---
+        char* tokens[10]; // An array to hold tokens for this ONE line
+        int token_count = 0;
+        char* token = strtok(line, "_");
+
+        while (token != NULL && token_count < 10) {
+            tokens[token_count] = token; // Add token to our array
+            token_count++;
+            token = strtok(NULL, "_"); // Get next token
+        }
+
+        // --- 4. Assign values based on line number ---
+        // We use a 'switch' to make it cleaner than many 'if' statements.
+        // We also check 'token_count' to avoid crashing if a line is blank.
+        switch (line_number) {
+            case 3:
+                if (token_count > 2) rph_intial = atoi(tokens[2]);
+                break;
+            case 4:
+                if (token_count > 2) eta_intial = atof(tokens[2]); // Use atof() for doubles
+                break;
+            case 5:
+                if (token_count > 2) force_intial = atoi(tokens[2]);
+                break;
+            case 6:
+                if (token_count > 1) mass = atoi(tokens[1]); // You used index [1] here
+                break;
+            case 7:
+                if (token_count > 2) k_intial = atoi(tokens[2]);
+                break;
+            case 8:
+                if (token_count > 2) working_area = atoi(tokens[2]);
+                break;
+            case 9:
+                if (token_count > 2) t_intial = atoi(tokens[2]);
+                break;
+        }
+    }
+    fclose(file);
+}
   
 int main(int argc, char *argv[]) {
 
+    Parameter_File();
     if (argc < 3) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
@@ -22,7 +86,7 @@ int main(int argc, char *argv[]) {
     int fdIn = atoi(argv[1]);
     char bufferIn[100];
 
-    int fdob = atoi(argv[2]);
+    int fdOb = atoi(argv[2]);
     char bufferOb[100];
 
     int fdTa = atoi(argv[3]);

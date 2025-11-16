@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <curses.h>
 #include <sys/time.h>
+#include <termios.h>
 
 int main(int argc, char *argv[]) 
 {
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
     new_tio = old_tio;                 // Copy them
 
     // Disable canonical mode (waiting for Enter) and echo
-    new_tio.c_lflag &= ~(ICANON | ECHO); 
+    new_tio.c_lflag &= ~(ICANON); 
     new_tio.c_cc[VMIN] = 1;  // Wait for 1 char
     new_tio.c_cc[VTIME] = 0; // Wait forever
 
