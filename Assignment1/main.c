@@ -21,17 +21,7 @@ int main()
     if (pipe(fdIn) == -1) {
         perror("pipe failed");
         exit(1);
-    }  
-
-        if (pipe(fdOb) == -1) {
-        perror("pipe failed");
-        exit(1);
-    } 
-
-        if (pipe(fdTa) == -1) {
-        perror("pipe failed");
-        exit(1);
-    } 
+    }   
 
     sleep(2);
 
@@ -50,20 +40,12 @@ int main()
 
         //this reads so close writing end
         close(fdIn[1]);
-        close(fdOb[1]);
-        close(fdTa[1]);
 
         // Execute process_P with fd[1] as a command-line argument
         char fdIn_str[10];
         snprintf(fdIn_str, sizeof(fdIn_str), "%d", fdIn[0]);
         
-        char fdOb_str[10];
-        snprintf(fdOb_str, sizeof(fdOb_str), "%d", fdOb[0]);
-        
-        char fdTa_str[10];
-        snprintf(fdTa_str, sizeof(fdTa_str), "%d", fdTa[0]);
-        
-        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str,fdOb_str, fdTa_str, (char *)NULL); // launch another process if condition met
+        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");
@@ -96,70 +78,6 @@ int main()
         // Execute process_P with fd[1] as a command-line argument
         
         execlp("konsole", "konsole", "-e", "./process_In", fd_str, (char *)NULL); // launch another process if condition met
-       
-        // If exec fails
-        perror("exec failed");
-        exit(1);
-     
-
-    }
-
-        pid_t Ob=fork();
-
-        if (Ob < 0)
-   {
-    perror("Error in fork");
-    return 1;
-    }
-
-    if (Ob == 0)
-    {
-       
-        // Child process
-        printf("Process Ob: PID = %d\n", getpid()); //getpid gets the file id
-
-        // Close the reading end of the pipe in the child
-        close(fdOb[0]);
-
-        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
-        char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdOb[1]);//saying whatever it reads store in fd_str
-
-        // Execute process_P with fd[1] as a command-line argument
-        
-        execlp("./process_Ob", "./process_Ob", fd_str, (char *)NULL);// launch another process if condition met
-       
-        // If exec fails
-        perror("exec failed");
-        exit(1);
-     
-
-    }
-
-    pid_t Ta=fork();
-
-        if (Ta < 0)
-   {
-    perror("Error in fork");
-    return 1;
-    }
-
-    if (Ta == 0)
-    {
-       
-        // Child process
-        printf("Process Ta: PID = %d\n", getpid()); //getpid gets the file id
-
-        // Close the reading end of the pipe in the child
-        close(fdTa[0]);
-
-        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
-        char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdTa[1]);//saying whatever it reads store in fd_str
-
-        // Execute process_P with fd[1] as a command-line argument
-        
-        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");
