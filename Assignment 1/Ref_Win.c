@@ -22,9 +22,7 @@ static void layout_and_draw(WINDOW *win) {
     werase(stdscr);
     werase(win);
     box(win, 0, 0);
-    mvprintw(0, 0, "Ridimensiona la shell; premi 'q' per uscire.");
-    mvwprintw(win, 1, 2, "stdscr: %dx%d  win: %dx%d",
-              H, W, wh, ww);
+   
 
     refresh();
     wrefresh(win);

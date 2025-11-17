@@ -71,10 +71,51 @@ void Parameter_File() {
     }
     fclose(file);
 }
+
+static void layout_and_draw(WINDOW *win) {
+    int H, W;
+    getmaxyx(stdscr, H, W);
+
+    // Window with fixed margin
+    int wh = (H > 6) ? H - 6 : H;
+    int ww = (W > 10) ? W - 10 : W;
+    if (wh < 3) wh = 3;
+    if (ww < 3) ww = 3;
+
+    // Resize and recenter window
+    wresize(win, wh, ww);
+    mvwin(win, (H - wh) / 2, (W - ww) / 2);
+
+    // Clean up and draw again
+    werase(stdscr);
+    werase(win);
+    box(win, 0, 0);
+   
+
+    refresh();
+    wrefresh(win);
+}
   
 int main(int argc, char *argv[]) {
 
     Parameter_File();
+    
+        setlocale(LC_ALL, "");
+
+    initscr();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);     // necesseary for KEY_RESIZE
+    // (opz.) set_escdelay(25);
+
+    // Create initial window (Dimensions TBM)
+    WINDOW *win = newwin(3, 3, 0, 0);
+    layout_and_draw(win);
+
+    delwin(win);
+    endwin();
+
+
     if (argc < 3) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
@@ -97,10 +138,12 @@ int main(int argc, char *argv[]) {
     struct timeval tv; //name of timeout tv
     int retval,counts1,counts2,countw1,countw2 ;
     char strIn[100], strOb[100],strTa[100],strR0[100];
-    char s1[100],s2[100],s3[100],s4[100];
+    char sIn[10],sOb[100],sTa[100],s4[100];
     char format_stringIn[100]="%s";
     char format_stringOb[100]="%d,%d";
     char format_stringTa[100]="%d,%d";
+    int x_coord_Ob,y_coord_Ob;
+    int x_coord_Ta,y_coord_Ta;
 
     fd_set readfds;
 
@@ -114,7 +157,7 @@ int main(int argc, char *argv[]) {
     //Let ncurses read the input from Ob, Ta
     //calculate the force and let ncurses respond accordingly
 
-    system("./Ref_Win &"); 
+    //system("./Ref_Win &"); 
 
     while (1){
         FD_ZERO(&readfds);
@@ -146,9 +189,18 @@ int main(int argc, char *argv[]) {
                      strIn[bytesIn]='\0';
         
                      /* read numbers from input line */
-                     sscanf(strIn, format_stringIn, s1);
+                     sscanf(strIn, format_stringIn, sIn);
 
                     } 
+                    int ch;
+                        while (sIn[0] != 'q') {
+                            if (ch == KEY_RESIZE) {
+                                // Update ncurses internal structures for new dimensions
+                                resize_term(0, 0);          // o resizeterm(0, 0)
+                                layout_and_draw(win);       // calcullate layout and draw again
+                            }
+                            // ... other buttons ...
+                        }
 
                     // Data from Ob pipeline
                     if (FD_ISSET(fdOb, &readfds)) 
@@ -165,9 +217,11 @@ int main(int argc, char *argv[]) {
                      strOb[bytesOb]='\0';
         
                      /* read numbers from input line */
-                     sscanf(strOb, format_stringOb, s2);
-                    
+                     sscanf(strOb, format_stringOb, &x_coord_Ob,&y_coord_Ob);
+                        mvwprintw(win,x_coord_Ob,y_coord_Ob,"%s","O");
                     }
+
+
 
                     // Data from Ta pipeline
                     if (FD_ISSET(fdTa, &readfds)) 
@@ -184,10 +238,45 @@ int main(int argc, char *argv[]) {
                      strTa[bytesTa]='\0';
         
                      /* read numbers from input line */
-                     sscanf(strTa, format_stringTa, s3);
-                    
+                     sscanf(strTa, format_stringTa, &x_coord_Ta,&y_coord_Ta);
+                        mvwprintw(win,x_coord_Ta,y_coord_Ta,"%s","T");
                     }
                     
+
+
+
+
+    /*while ( (sIn = getch()) != KEY_ESC)
+	{
+		// remove the current x from the screen
+		clear();
+		
+        //x_motion= mass*
+		move(curY, curX); /* moves the cursor to rowth row and colth column 
+		printw("o");
+		refresh();	
+		
+		// choose the appropriate direction to move based on the input
+		// it wraps around, so go far enough up and you end up on the bottom
+		switch (sIn)
+		{
+			case 'w':
+				curY = (curY == 0) ? maxY - 1 : curY - 1;
+				break;
+			case 'a':
+				curX = (curX == 0) ? maxX - 1 : curX - 1;
+				break;
+			case 's':
+				curY = (curY + 1 == maxY) ? 0 : curY + 1;
+				break;
+			case 'd':
+				curX = (curX + 1 == maxX) ? 0 : curX + 1;
+				break;
+		}
+	}
+
+	endwin();
+	return 0;*/
                     
                 }
             

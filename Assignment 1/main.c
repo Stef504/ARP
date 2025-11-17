@@ -62,8 +62,6 @@ int main()
         
         char fdTa_str[10];
         snprintf(fdTa_str, sizeof(fdTa_str), "%d", fdTa[0]);
-                
-
         
         execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str,fdOb_str, fdTa_str, (char *)NULL); // launch another process if condition met
        
