@@ -221,24 +221,23 @@ int main(int argc, char *argv[]) {
         obstacle_generation(win, y_coord_Ob, x_coord_Ob);
         target_generation(win, y_coord_Ta, x_coord_Ta);
 
-        //.....Drone.....
+        //.....Drone..... 
         // --- INITIALIZATION ---
         // We use floats for physics precision, cast to int for drawing.
         // Start in the middle of the screen.
-        mvwinstr(win, H/2, W/2, 'H');
-        float x_curr = maxX / 2.0;
-        float x_prev = maxX / 2.0;
-        float x_prev2 = maxX / 2.0;
+        mvwprintw(win, H/2, W/2, "%s","H");
+        float x_curr = term_w / 2.0;
+        float x_prev = term_w / 2.0;
+        float x_prev2 = term_w / 2.0;
 
-        float y_curr = maxY / 2.0;
-        float y_prev = maxY / 2.0;
-        float y_prev2 = maxY / 2.0;
+        float y_curr = term_h / 2.0;
+        float y_prev = term_h / 2.0;
+        float y_prev2 = term_h / 2.0;
         
 
 
         if (sIn[0]== 'a'){
-
-            mvwprintw(win,H/2, W/2, 'H');
+            mvwprintw(win,H/2, W/2,"%s", "H");
             wrefresh(win);
         }
         if (sIn[0] == 'p'){
@@ -262,41 +261,41 @@ int main(int argc, char *argv[]) {
         // If key is held, force is applied. If released, force becomes 0.
         float Fx = 0;
         float Fy = 0;
+        float Fxy = 0;
 
         switch (sIn[0]) {
-            case 'e': Fy = -Force; break; // Up (Negative Y)
-            case 'c': Fy = Force;  break; // Down (Positive Y)
-            case 's': Fx = -Force; break; // Left (Negative X)
-            case 'f': Fx = Force;  break; // Right (Positive X)
-            case 'w': Fxy = Force; break; // Up-Right
-            case 'x': Fxy = -Force; break; // Down-Left
-            case 'r': Fxy = Force; break; // Up-Left
-            case 'v': Fxy = -Force; break; // Down-Right
-            case KEY_ESC: running = false; break;
+            case 'e': Fy = -force_intial; break; // Up (Negative Y)
+            case 'c': Fy = force_intial;  break; // Down (Positive Y)
+            case 's': Fx = -force_intial; break; // Left (Negative X)
+            case 'f': Fx = force_intial;  break; // Right (Positive X)
+            case 'w': Fxy = force_intial; break; // Up-Right
+            case 'x': Fxy = -force_intial; break; // Down-Left
+            case 'r': Fxy = force_intial; break; // Up-Left
+            case 'v': Fxy = -force_intial; break; // Down-Right
         }
 
         // 2. PHYSICS CALCULATION (The Equation)
         // We calculate X and Y independently to allow 8-direction movement.
         
         // Denominator is the same for both: (M + KT)
-        float denom = M + (K * T);
+        float denom = mass + (k_intial * t_intial);
         
         // Constant term for history: (2M + KT)
-        float history_factor = (2 * M) + (K * T);
+        float history_factor = (2 * mass) + (k_intial * t_intial);
 
         // Formula: x_i = [ F*T^2 + x_{i-1}*(2M+KT) - M*x_{i-2} ] / (M+KT)
-        float num_x = (Fx * T * T) + (x_prev * history_factor) - (M * x_prev2);
+        float num_x = (Fx * t_intial * t_intial) + (x_prev * history_factor) - (mass * x_prev2);
         x_curr = num_x / denom;
 
-        float num_y = (Fy * T * T) + (y_prev * history_factor) - (M * y_prev2);
+        float num_y = (Fy * t_intial * t_intial) + (y_prev * history_factor) - (mass * y_prev2);
         y_curr = num_y / denom;
 
         //diagonal
         while (sIn[0] == 'w' || sIn[0] == 'x' || sIn[0] == 'r' || sIn[0] == 'v') {
-        float num_x = (Fxy * T * T) + (x_prev * history_factor) - (M * x_prev2);
+        float num_x = (Fxy * t_intial * t_intial) + (x_prev * history_factor) - (mass * x_prev2);
         x_curr = num_x / denom;
 
-        float num_y = (Fxy * T * T) + (y_prev * history_factor) - (M * y_prev2);
+        float num_y = (Fxy * t_intial * t_intial) + (y_prev * history_factor) - (mass * y_prev2);
         y_curr = num_y / denom;
 
         // 4. DRAWING
@@ -308,16 +307,16 @@ int main(int argc, char *argv[]) {
         // If we hit a wall, we clamp the position and reset history 
         // to kill the momentum (otherwise it sticks/vibrates).
         
-        if (x_curr >= maxX - 1) {
-            x_curr = maxX - 1;
+        if (x_curr >= term_w - 1) {
+            x_curr = term_w - 1;
             x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
         } else if (x_curr <= 0) {
             x_curr = 0;
             x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
         }
 
-        if (y_curr >= maxY - 1) {
-            y_curr = maxY - 1;
+        if (y_curr >= term_h - 1) {
+            y_curr = term_h - 1;
             y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
         } else if (y_curr <= 0) {
             y_curr = 0;
