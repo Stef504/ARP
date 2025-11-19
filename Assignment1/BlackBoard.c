@@ -175,27 +175,7 @@ int main(int argc, char *argv[]) {
     int maxfd = fdIn;
 
     while (1){
-        FD_ZERO(&readfds);
-        FD_SET(fdIn, &readfds);
-
-        select(maxfd + 1, &readfds, NULL, NULL, &tv);
-
-            if(FD_ISSET(fdIn, &readfds)) 
-            {
-                ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
-                
-                if (bytesIn <= 0) 
-                {
-                    printf("Pipe closed\n");
-                    break;
-                }
-
-                strIn[bytesIn] = '\0';
-                sscanf(strIn, format_stringIn, sIn);
-                // TODO: Process keyboard imput
-               // wrefresh(win);
-            }
-            
+                   
 
         int ch=getch();
         int newH = H - wh;
@@ -211,8 +191,16 @@ int main(int argc, char *argv[]) {
 
         while (running) {
 
-            if(FD_ISSET(fdIn, &readfds)) 
-            {
+            FD_ZERO(&readfds);
+            FD_SET(fdIn, &readfds);
+
+            retval= select(maxfd + 1, &readfds, NULL, NULL, &tv);
+
+            if (retval==-1){
+                perror("select()");
+                break;
+            }    
+            else if( retval > 0 && FD_ISSET(fdIn, &readfds)) {
                 ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
                 
                 if (bytesIn <= 0) 
