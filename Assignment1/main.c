@@ -11,7 +11,7 @@
 
 int main()
 {
-    int fdIn[2], fdOb[2], fdTa[2];
+    int fdIn[2];
  
     char buf[100];
     int toggle = 0;

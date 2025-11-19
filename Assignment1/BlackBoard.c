@@ -20,6 +20,7 @@ int mass;
 int k_intial;
 int working_area;
 int t_intial;
+int H, W;
 
 void Parameter_File() {
     FILE* file = fopen("Parameter_File.txt", "r");
@@ -83,7 +84,7 @@ void Parameter_File() {
 }
 
 static void layout_and_draw(WINDOW *win) {
-    int H, W;
+    
     getmaxyx(stdscr, H, W);
 
     // Window with fixed margin
@@ -169,17 +170,6 @@ int main(int argc, char *argv[]) {
         tv.tv_sec = 5;
         tv.tv_usec = 0;
         retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
- 
-        srand(time(NULL));
-        x_coord_Ob = rand() % (window_width - 10);
-        y_coord_Ob = rand() % (window_height - 10);
-
-        srand(time(NULL) + 1);
-        x_coord_Ta = rand() % (window_width - 10);
-        y_coord_Ta = rand() % (window_height - 10);
-
-        obstacle_generation(win, y_coord_Ob, x_coord_Ob);
-        target_generation(win, y_coord_Ta, x_coord_Ta);
 
         if (retval == -1) {
             perror("select()");
@@ -200,6 +190,28 @@ int main(int argc, char *argv[]) {
             }
             
         }
+        int ch;
+        while ((ch = getch()) != 'q') {
+            if (ch == KEY_RESIZE) {
+                // Update ncurses internal structures for new dimensions
+                resize_term(0, 0);          // o resizeterm(0, 0)
+                layout_and_draw(win);       // calcullate layout and draw again
+            }
+        // ... other buttons ...
+        srand(time(NULL));
+        x_coord_Ob = rand() % (W - 10);
+        y_coord_Ob = rand() % (H - 10);
+
+        srand(time(NULL) + 1);
+        x_coord_Ta = rand() % (W - 10);
+        y_coord_Ta = rand() % (H - 10);
+
+        obstacle_generation(win, y_coord_Ob, x_coord_Ob);
+        target_generation(win, y_coord_Ta, x_coord_Ta);
+    }
+    
+
+
     }
 
     // Cleanup
