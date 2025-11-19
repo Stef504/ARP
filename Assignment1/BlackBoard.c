@@ -11,17 +11,19 @@
 #include <sys/time.h>
 #include <time.h>
 #include <math.h>
+#include <stdbool.h>
 
-int window_width;
-int window_height;
-int rph_intial;
-double eta_intial;
-int force_intial;
-int mass;
-int k_intial;
-int working_area;
-int t_intial;
-int H, W;
+int window_width = 0;
+int window_height = 0;
+int rph_intial = 0;
+double eta_intial = 0.0;
+int force_intial = 0;
+int mass = 1;        // sensible default
+int k_intial = 0;
+int working_area = 0;
+int t_intial = 100;  // safe default timeout (ms)
+int H = 0, W = 0;
+int wh = 0, ww = 0;
 bool running = true;
 
 void Parameter_File() {
@@ -90,8 +92,8 @@ static void layout_and_draw(WINDOW *win) {
     getmaxyx(stdscr, H, W);
 
     // Window with fixed margin
-    int wh = (H > 6) ? H - 6 : H;
-    int ww = (W > 10) ? W - 10 : W;
+    wh = (H > 6) ? H - 6 : H;
+    ww = (W > 10) ? W - 10 : W;
     if (wh < 3) wh = 3;
     if (ww < 3) ww = 3;
 
@@ -176,13 +178,8 @@ int main(int argc, char *argv[]) {
         FD_ZERO(&readfds);
         FD_SET(fdIn, &readfds);
 
-        tv.tv_sec = 5;
-        tv.tv_usec = 0;
-        retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+        select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
-        if (retval == -1) {
-            perror("select()");
-        } else if (retval > 0) {
             if(FD_ISSET(fdIn, &readfds)) 
             {
                 ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
@@ -199,145 +196,176 @@ int main(int argc, char *argv[]) {
                // wrefresh(win);
             }
             
-        }
 
         int ch=getch();
+        int newH = H - wh;
+        int newW = W - ww;
 
-        while ((sIn[0]) != 'q') {
+        float x_curr = newW / 2.0;
+        float x_prev = newW / 2.0;
+        float x_prev2 = newW / 2.0;
+
+        float y_curr = newH / 2.0;
+        float y_prev = newH / 2.0;
+        float y_prev2 = newH / 2.0;
+
+        while (running) {
+
+            if(FD_ISSET(fdIn, &readfds)) 
+            {
+                ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
+                
+                if (bytesIn <= 0) 
+                {
+                    printf("Pipe closed\n");
+                    break;
+                }
+
+                strIn[bytesIn] = '\0';
+                sscanf(strIn, format_stringIn, sIn);
+                // TODO: Process keyboard imput
+                // wrefresh(win);
+            }
+
             if (ch == KEY_RESIZE) {
                 // Update ncurses internal structures for new dimensions
                 resize_term(0, 0);          // o resizeterm(0, 0)
                 layout_and_draw(win);       // calcullate layout and draw again
             }
-        // ... Obastcles and Targets ...
-        srand(time(NULL));
-        x_coord_Ob = rand() % (W - 10);
-        y_coord_Ob = rand() % (H - 10);
+            
+            // ... Obastcles and Targets ...
+            srand(time(NULL));
+            x_coord_Ob = rand() % ((W - ww) - 10);
+            y_coord_Ob = rand() % ((H - wh) - 10);
 
-        srand(time(NULL) + 1);
-        x_coord_Ta = rand() % (W - 10);
-        y_coord_Ta = rand() % (H - 10);
+            srand(time(NULL) + 1);
+            x_coord_Ta = rand() % ((W - ww)  - 10);
+            y_coord_Ta = rand() % ((H - wh) - 10);
 
-        obstacle_generation(win, y_coord_Ob, x_coord_Ob);
-        target_generation(win, y_coord_Ta, x_coord_Ta);
+            obstacle_generation(win, y_coord_Ob, x_coord_Ob);
+            target_generation(win, y_coord_Ta, x_coord_Ta);
 
-        //.....Drone..... 
-        // --- INITIALIZATION ---
-        // We use floats for physics precision, cast to int for drawing.
-        // Start in the middle of the screen.
-        mvwprintw(win, H/2, W/2, "%s","H");
-        float x_curr = term_w / 2.0;
-        float x_prev = term_w / 2.0;
-        float x_prev2 = term_w / 2.0;
-
-        float y_curr = term_h / 2.0;
-        float y_prev = term_h / 2.0;
-        float y_prev2 = term_h / 2.0;
-        
-
-
-        if (sIn[0]== 'a'){
-            mvwprintw(win,H/2, W/2,"%s", "H");
-            wrefresh(win);
-        }
-        if (sIn[0] == 'p'){
-            while (sIn[0] != 'u'){   
-                mvprintw(0, 0, "Game Paused, Press 'u' to Resume");
+            //.....Drone..... 
+            // --- INITIALIZATION ---
+            // We use floats for physics precision, cast to int for drawing.
+            // Start in the middle of the screen.
+            mvwprintw(win, newH/2, newW/2, "%s","H");
+            
+            if (sIn[0]=='q'){
+                running = false;
+                exit(0);
+            }
+            if (sIn[0]== 'a'){
+                mvwprintw(win,newH/2, newW/2,"%s", "H");
                 wrefresh(win);
-                obstacle_generation(win, 0, 0);
-                target_generation(win, 0, 0);
-                sleep(2);
+            }
+            if (sIn[0] == 'p'){
+                while (sIn[0] != 'u'){   
+                    mvprintw(0, 0, "Game Paused, Press 'u' to Resume");
+                    wrefresh(win);
+                    obstacle_generation(win, 0, 0);
+                    target_generation(win, 0, 0);
+                    sleep(2);
+                }
+
+            }
+            if (sIn[0]=='u'){
+                mvwaddch(win, 0, 0, ' ');
+                wrefresh(win);
+
+            }
+            
+            
+            // Reset force to 0 at start of every frame.
+            // If key is held, force is applied. If released, force becomes 0.
+            float Fx = 0;
+            float Fy = 0;
+            float Fxy = 0;
+            float diag_force = (float)force_intial * M_SQRT1_2;
+
+            // 3. INPUT MAPPING (The Fix)
+            // We apply +/- signs directly to Fx and Fy here.
+            switch (sIn[0]) {
+                // STRAIGHT
+                case 'e': Fy = -force_intial; break; // Up
+                case 'c': Fy =  force_intial; break; // Down
+                case 's': Fx = -force_intial; break; // Left
+                case 'f': Fx =  force_intial; break; // Right
+                
+                // DIAGONAL (Split the force into X and Y components)
+                case 'w': // Up-Left (-X, -Y)
+                    Fx = -diag_force; 
+                    Fy = -diag_force; 
+                    break;
+                case 'r': // Up-Right (+X, -Y)
+                    Fx =  diag_force; 
+                    Fy = -diag_force; 
+                    break;
+                case 'x': // Down-Left (-X, +Y)
+                    Fx = -diag_force; 
+                    Fy =  diag_force; 
+                    break;
+                case 'v': // Down-Right (+X, +Y)
+                    Fx =  diag_force; 
+                    Fy =  diag_force; 
+                    break;
+                
+                case 'q': running = false; break;
             }
 
-        }
-        if (sIn[0]=='u'){
-            mvwaddch(win, 0, 0, ' ');
-            wrefresh(win);
+            // 2. PHYSICS CALCULATION (The Equation)
+            // We calculate X and Y independently to allow 8-direction movement.
+            
+            float T= t_intial / 1000.0; // Convert ms to seconds
+            
+            // Denominator is the same for both: (M + KT)
+            float denom = mass + (k_intial * t_intial);
+            
+            // Constant term for history: (2M + KT)
+            float history_factor = (2 * mass) + (k_intial * t_intial);
 
-        }
-        
-        
-        // Reset force to 0 at start of every frame.
-        // If key is held, force is applied. If released, force becomes 0.
-        float Fx = 0;
-        float Fy = 0;
-        float Fxy = 0;
+            // Formula: x_i = [ F*T^2 + x_{i-1}*(2M+KT) - M*x_{i-2} ] / (M+KT)
+            float num_x = (Fx * t_intial * t_intial) + (x_prev * history_factor) - (mass * x_prev2);
+            x_curr = num_x / denom;
 
-        switch (sIn[0]) {
-            case 'e': Fy = -force_intial; break; // Up (Negative Y)
-            case 'c': Fy = force_intial;  break; // Down (Positive Y)
-            case 's': Fx = -force_intial; break; // Left (Negative X)
-            case 'f': Fx = force_intial;  break; // Right (Positive X)
-            case 'w': Fxy = force_intial; break; // Up-Right
-            case 'x': Fxy = -force_intial; break; // Down-Left
-            case 'r': Fxy = force_intial; break; // Up-Left
-            case 'v': Fxy = -force_intial; break; // Down-Right
-        }
-
-        // 2. PHYSICS CALCULATION (The Equation)
-        // We calculate X and Y independently to allow 8-direction movement.
-        
-        // Denominator is the same for both: (M + KT)
-        float denom = mass + (k_intial * t_intial);
-        
-        // Constant term for history: (2M + KT)
-        float history_factor = (2 * mass) + (k_intial * t_intial);
-
-        // Formula: x_i = [ F*T^2 + x_{i-1}*(2M+KT) - M*x_{i-2} ] / (M+KT)
-        float num_x = (Fx * t_intial * t_intial) + (x_prev * history_factor) - (mass * x_prev2);
-        x_curr = num_x / denom;
-
-        float num_y = (Fy * t_intial * t_intial) + (y_prev * history_factor) - (mass * y_prev2);
-        y_curr = num_y / denom;
-
-        //diagonal
-        while (sIn[0] == 'w' || sIn[0] == 'x' || sIn[0] == 'r' || sIn[0] == 'v') {
-        float num_x = (Fxy * t_intial * t_intial) + (x_prev * history_factor) - (mass * x_prev2);
-        x_curr = num_x / denom;
-
-        float num_y = (Fxy * t_intial * t_intial) + (y_prev * history_factor) - (mass * y_prev2);
-        y_curr = num_y / denom;
-
-        // 4. DRAWING
-        clear();
-        mvprintw((int)(y_curr+x_curr), (int)(x_curr+y_curr), "H");
-        }
-
-        // 3. WALL COLLISION (No Wrap-Around)
-        // If we hit a wall, we clamp the position and reset history 
-        // to kill the momentum (otherwise it sticks/vibrates).
-        
-        if (x_curr >= term_w - 1) {
-            x_curr = term_w - 1;
-            x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
-        } else if (x_curr <= 0) {
-            x_curr = 0;
-            x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
-        }
-
-        if (y_curr >= term_h - 1) {
-            y_curr = term_h - 1;
-            y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
-        } else if (y_curr <= 0) {
-            y_curr = 0;
-            y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
-        }
-
-        // 4. DRAWING
-        clear();
-        mvprintw((int)y_curr, (int)x_curr, "H");
-
-        // 5. SHIFT HISTORY (Prepare for next loop)
-        // Oldest becomes older
-        x_prev2 = x_prev;
-        y_prev2 = y_prev;
-        
-        // Current becomes previous
-        x_prev = x_curr;
-        y_prev = y_curr;
+            float num_y = (Fy * t_intial * t_intial) + (y_prev * history_factor) - (mass * y_prev2);
+            y_curr = num_y / denom;
     
-    }
 
+            // 3. WALL COLLISION (No Wrap-Around)
+            // If we hit a wall, we clamp the position and reset history 
+            // to kill the momentum (otherwise it sticks/vibrates).
+            
+            if (x_curr >= newW - 1) {
+                x_curr = newW - 1;
+                x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
+            } else if (x_curr <= 0) {
+                x_curr = 0;
+                x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
+            }
+
+            if (y_curr >= newH - 1) {
+                y_curr = newH - 1;
+                y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
+            } else if (y_curr <= 0) {
+                y_curr = 0;
+                y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
+            }
+
+            // 4. DRAWING
+            clear();
+            mvprintw((int)y_curr, (int)x_curr, "H");
+
+            // 5. SHIFT HISTORY (Prepare for next loop)
+            // Oldest becomes older
+            x_prev2 = x_prev;
+            y_prev2 = y_prev;
+            
+            // Current becomes previous
+            x_prev = x_curr;
+            y_prev = y_curr;
+    
+        }
     }
 
     // Cleanup
