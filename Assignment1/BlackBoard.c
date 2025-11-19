@@ -221,17 +221,19 @@ int main(int argc, char *argv[]) {
                 layout_and_draw(win);       // calcullate layout and draw again
             }
             
+            int win_height, win_width;
+            getmaxyx(win, win_height, win_width);
             // ... Obastcles and Targets ...
             srand(time(NULL));
-            x_coord_Ob = rand() % ((W - ww) - 10);
-            y_coord_Ob = rand() % ((H - wh) - 10);
+            x_coord_Ob = 1 + rand() % (win_width - 10);
+            y_coord_Ob = 1 + rand() % (win_height - 10);
 
             srand(time(NULL) + 1);
-            x_coord_Ta = rand() % ((W - ww)  - 10);
-            y_coord_Ta = rand() % ((H - wh) - 10);
+            x_coord_Ta = 1 + rand() % (win_width - 10);
+            y_coord_Ta = 1 + rand() % (win_height - 10);
 
-            obstacle_generation(win, y_coord_Ob, x_coord_Ob);
-            target_generation(win, y_coord_Ta, x_coord_Ta);
+            obstacle_generation(win, x_coord_Ob, y_coord_Ob);
+            target_generation(win, x_coord_Ta, y_coord_Ta);
 
             //.....Drone..... 
             // --- INITIALIZATION ---
