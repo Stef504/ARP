@@ -13,6 +13,13 @@
 #include <math.h>
 #include <stdbool.h>
 
+// --- Timing helper for non-blocking periodic generation ---
+static long current_millis() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000L + tv.tv_usec / 1000L;
+}
+
 int window_width = 0;
 int window_height = 0;
 int rph_intial = 0;
@@ -116,7 +123,6 @@ void obstacle_generation(WINDOW* win, int x_coord, int y_coord){
     if (x_coord != 0 && y_coord != 0){
         mvwprintw(win, y_coord, x_coord, "%s", "O");
         wrefresh(win);
-        sleep(1);
     }
 }
 
@@ -125,7 +131,6 @@ void target_generation(WINDOW* win, int x_coord, int y_coord){
     if (x_coord != 0 && y_coord != 0){
         mvwprintw(win, y_coord, x_coord, "%s", "T");
         wrefresh(win);
-        sleep(2);
     }
 }
   
@@ -173,6 +178,12 @@ int main(int argc, char *argv[]) {
 
     fd_set readfds;
     int maxfd = fdIn;
+
+    // Generation intervals (milliseconds) and last timestamps
+    const long obstacle_interval_ms = 5000;  // 5 seconds
+    const long target_interval_ms   = 7000; // 7 seconds
+    long last_obstacle_ms = current_millis();
+    long last_target_ms   = current_millis();
 
     while (1){
                    
@@ -223,17 +234,23 @@ int main(int argc, char *argv[]) {
             
             int win_height, win_width;
             getmaxyx(win, win_height, win_width);
-            // ... Obastcles and Targets ...
-            srand(time(NULL));
-            x_coord_Ob = 1 + rand() % (win_width - 10);
-            y_coord_Ob = 1 + rand() % (win_height - 10);
 
-            srand(time(NULL) + 1);
-            x_coord_Ta = 1 + rand() % (win_width - 10);
-            y_coord_Ta = 1 + rand() % (win_height - 10);
-
-            obstacle_generation(win, x_coord_Ob, y_coord_Ob);
-            target_generation(win, x_coord_Ta, y_coord_Ta);
+            // Time-based (non-blocking) obstacle / target generation
+            long now_ms = current_millis();
+            if (now_ms - last_obstacle_ms >= obstacle_interval_ms) {
+                srand(time(NULL));
+                x_coord_Ob = 1 + rand() % (win_width - 10);
+                y_coord_Ob = 1 + rand() % (win_height - 10);
+                obstacle_generation(win, x_coord_Ob, y_coord_Ob);
+                last_obstacle_ms = now_ms;
+            }
+            if (now_ms - last_target_ms >= target_interval_ms) {
+                srand(time(NULL) + 1);
+                x_coord_Ta = 1 + rand() % (win_width - 10);
+                y_coord_Ta = 1 + rand() % (win_height - 10);
+                target_generation(win, x_coord_Ta, y_coord_Ta);
+                last_target_ms = now_ms;
+            }
 
             //.....Drone..... 
             // --- INITIALIZATION ---
