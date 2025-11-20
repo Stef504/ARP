@@ -240,35 +240,100 @@ int main(int argc, char *argv[]) {
             }                
 
             //.....Drone..... 
-            
-            if (sIn[0]=='q'){
-                running = false;
-                exit(0);
-            }
-            if (sIn[0]== 'a'){
-                wrefresh(win);
-            }
-            if (sIn[0] == 'p'){
-                while (sIn[0] != 'u'){   
-                    mvprintw(0, 0, "Game Paused, Press 'u' to Resume");
-                    wrefresh(win);
-                    sleep(2);
-                }
-
-            }
-            if (sIn[0]=='u'){
-                mvwaddch(win, 0, 0, ' ');
-                wrefresh(win);
-
-            }
-            
-            
             // Reset force to 0 at start of every frame.
             // If key is held, force is applied. If released, force becomes 0.
             float Fx = 0;
             float Fy = 0;
             float Fxy = 0;
             float diag_force = (float)force_intial * M_SQRT1_2;
+
+            if (sIn[0]=='q'){
+                running = false;
+                exit(0);
+            }
+            if (sIn[0]== 'a'){
+                mvwprintw(win, term_h/2,term_w/2, "+");
+                mvwprintw(win, term_h/2,term_w/2, " ");
+                x_curr=term_w/2;
+                y_curr=term_h/2;
+                x_prev=term_w/2;
+                y_prev=term_h/2;
+                x_prev2=term_w/2;
+                y_prev2=term_h/2;
+                wrefresh(win);
+            }
+            if (sIn[0] == 'p') {
+                mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
+                mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+                wrefresh(win);
+
+                // Poll for resume from the input pipe (fdIn) or keyboard,
+                // keep checking other pipes so obstacles/targets still update.
+                fd_set pause_fds;
+                struct timeval pause_tv;
+                int pause_ret;
+                int pause_ch = -1;
+
+                while (running) {
+                    // check keyboard
+                    pause_ch = getch();
+                    if (pause_ch == 'u') break;
+
+                    // set up select on fds (zero timeout so we poll periodically)
+                    FD_ZERO(&pause_fds);
+                    FD_SET(fdIn, &pause_fds);
+                    FD_SET(fdOb, &pause_fds);
+                    FD_SET(fdTa, &pause_fds);
+                    pause_tv.tv_sec = 0;
+                    pause_tv.tv_usec = 100 * 1000; // 100 ms
+
+                    pause_ret = select(maxfd + 1, &pause_fds, NULL, NULL, &pause_tv);
+                    if (pause_ret > 0) {
+                        // If input pipe has data, read and update sIn
+                        if (FD_ISSET(fdIn, &pause_fds)) {
+                            ssize_t bytes = read(fdIn, strIn, sizeof(strIn) - 1);
+                            if (bytes > 0) {
+                                strIn[bytes] = '\0';
+                                sscanf(strIn, "%s", sIn);
+                                if (sIn[0] == 'u') break;
+                            } else {
+                                running = false;
+                                break;
+                            }
+                        }
+                        // Still consume obstacle/target updates so they remain visible
+                        if (FD_ISSET(fdOb, &pause_fds)) {
+                            ssize_t bytes = read(fdOb, strOb, sizeof(strOb) - 1);
+                            if (bytes > 0) {
+                                strOb[bytes] = '\0';
+                                sscanf(strOb, "%d,%d", &cur_ob_x, &cur_ob_y);
+                            }
+                        }
+                        if (FD_ISSET(fdTa, &pause_fds)) {
+                            ssize_t bytes = read(fdTa, strTa, sizeof(strTa) - 1);
+                            if (bytes > 0) {
+                                strTa[bytes] = '\0';
+                                sscanf(strTa, "%d,%d", &cur_ta_x, &cur_ta_y);
+                            }
+                        }
+                    }
+
+                    // redraw the pause message/frame so UI stays alive
+                    werase(win);
+                    box(win, 0, 0);
+                    mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
+                    if (cur_ob_x > 0 && cur_ob_y > 0) mvwprintw(win, cur_ob_y, cur_ob_x, "O");
+                    if (cur_ta_x > 0 && cur_ta_y > 0) mvwprintw(win, cur_ta_y, cur_ta_x, "T");
+                    mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+                    wrefresh(win);
+                }
+
+                // Clear pause message after resume
+                mvwprintw(win, 0, 0, "                             ");
+                mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+                wrefresh(win);
+            }
+            
 
             // 3. INPUT MAPPING (The Fix)
             // We apply +/- signs directly to Fx and Fy here.
