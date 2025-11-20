@@ -13,13 +13,6 @@
 #include <math.h>
 #include <stdbool.h>
 
-// --- Timing helper for non-blocking periodic generation ---
-static long current_millis() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000L + tv.tv_usec / 1000L;
-}
-
 int window_width = 0;
 int window_height = 0;
 int rph_intial = 0;
@@ -157,7 +150,7 @@ int main(int argc, char *argv[]) {
     WINDOW *win = newwin(win_h, win_w, 0, 0);
     layout_and_draw(win);
 
-    if (argc < 2) 
+    if (argc < 3) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         endwin();
@@ -167,27 +160,29 @@ int main(int argc, char *argv[]) {
     // Convert the argument to an integer file descriptor
     int fdIn = atoi(argv[1]);
     char bufferIn[100];
+    int fdOb = atoi(argv[2]);
+    char bufferOb[100];
+    int fdTa = atoi(argv[3]);
+    char bufferTa[100];
 
     struct timeval tv;
     int retval;
-    char strIn[100], sIn[10];
+    char strIn[100], strOb[100], strTa[100]; 
+    char sIn[10], sOb[10], sTa[10];
     char format_stringIn[100] = "%s";
+    char format_stringOb[100] = "%d,%d";
+    char format_stringTa[100] = "%d,%d";
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
     timeout(t_intial);
 
     fd_set readfds;
     int maxfd = fdIn;
-
-    // Generation intervals (milliseconds) and last timestamps
-    const long obstacle_interval_ms = 5000;  // 5 seconds
-    const long target_interval_ms   = 7000; // 7 seconds
-    long last_obstacle_ms = current_millis();
-    long last_target_ms   = current_millis();
+    if (fdOb > maxfd) maxfd = fdOb;
+    if (fdTa > maxfd) maxfd = fdTa;
 
     while (1){
                    
-
         int ch=getch();
         int newH = H - wh;
         int newW = W - ww;
@@ -204,6 +199,8 @@ int main(int argc, char *argv[]) {
 
             FD_ZERO(&readfds);
             FD_SET(fdIn, &readfds);
+            FD_SET(fdOb, &readfds);
+            FD_SET(fdTa, &readfds);
 
             retval= select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
@@ -211,19 +208,26 @@ int main(int argc, char *argv[]) {
                 perror("select()");
                 break;
             }    
-            else if( retval > 0 && FD_ISSET(fdIn, &readfds)) {
-                ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
+            else if( retval > 0) {
+                if(FD_ISSET(fdIn, &readfds)){
+                    
+                    ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
                 
-                if (bytesIn <= 0) 
-                {
-                    printf("Pipe closed\n");
-                    break;
+                    if (bytesIn <= 0) 
+                    {
+                        printf("Pipe closed\n");
+                        break;
+                    }
+
+                    strIn[bytesIn] = '\0';
+                    sscanf(strIn, format_stringIn, sIn);
+                    // TODO: Process keyboard imput
+                    // wrefresh(win);
+
                 }
 
-                strIn[bytesIn] = '\0';
-                sscanf(strIn, format_stringIn, sIn);
-                // TODO: Process keyboard imput
-                // wrefresh(win);
+                
+                
             }
 
             if (ch == KEY_RESIZE) {
@@ -231,47 +235,25 @@ int main(int argc, char *argv[]) {
                 resize_term(0, 0);          // o resizeterm(0, 0)
                 layout_and_draw(win);       // calcullate layout and draw again
             }
-            
-            int win_height, win_width;
-            getmaxyx(win, win_height, win_width);
-
-            // Time-based (non-blocking) obstacle / target generation
-            long now_ms = current_millis();
-            if (now_ms - last_obstacle_ms >= obstacle_interval_ms) {
-                srand(time(NULL));
-                x_coord_Ob = 1 + rand() % (win_width - 10);
-                y_coord_Ob = 1 + rand() % (win_height - 10);
-                obstacle_generation(win, x_coord_Ob, y_coord_Ob);
-                last_obstacle_ms = now_ms;
-            }
-            if (now_ms - last_target_ms >= target_interval_ms) {
-                srand(time(NULL) + 1);
-                x_coord_Ta = 1 + rand() % (win_width - 10);
-                y_coord_Ta = 1 + rand() % (win_height - 10);
-                target_generation(win, x_coord_Ta, y_coord_Ta);
-                last_target_ms = now_ms;
-            }
 
             //.....Drone..... 
             // --- INITIALIZATION ---
             // We use floats for physics precision, cast to int for drawing.
             // Start in the middle of the screen.
-            mvwprintw(win, newH/2, newW/2, "%s","H");
+            mvwprintw(win, term_h/2, term_w/2, "%s","+");
             
             if (sIn[0]=='q'){
                 running = false;
                 exit(0);
             }
             if (sIn[0]== 'a'){
-                mvwprintw(win,newH/2, newW/2,"%s", "H");
+                mvwprintw(win,term_h/2, term_w/2,"%s", "+");
                 wrefresh(win);
             }
             if (sIn[0] == 'p'){
                 while (sIn[0] != 'u'){   
                     mvprintw(0, 0, "Game Paused, Press 'u' to Resume");
                     wrefresh(win);
-                    obstacle_generation(win, 0, 0);
-                    target_generation(win, 0, 0);
                     sleep(2);
                 }
 

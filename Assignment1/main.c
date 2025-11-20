@@ -11,7 +11,7 @@
 
 int main()
 {
-    int fdIn[2];
+    int fdIn[2], fdOb[2], fdTa[2];
  
     char buf[100];
     int toggle = 0;
@@ -84,6 +84,71 @@ int main()
         exit(1);
      
 
+    }
+
+    
+
+    pid_t Ob=fork();
+
+    if (Ob < 0)
+    {
+    perror("Error in fork");
+    return 1;
+    }
+
+    if (Ob == 0)
+    {
+       
+        // Child process
+        printf("Process Ob: PID = %d\n", getpid()); //getpid gets the file id
+
+        // Close the reading end of the pipe in the child
+        close(fdOb[0]);
+
+        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
+        char fd_str[10];
+        snprintf(fd_str, sizeof(fd_str), "%d", fdOb[1]);//saying whatever it reads store in fd_str
+
+        // Execute process_P with fd[1] as a command-line argument
+        
+        execlp("./process_Ob", "./process_Ob", fd_str, (char *)NULL);// launch another process if condition met
+       
+        // If exec fails
+        perror("exec failed");
+        exit(1);
+     
+
+    }
+
+    pid_t Ta=fork();
+
+    if (Ta < 0)
+    {
+    perror("Error in fork");
+    return 1;
+    }
+
+    if (Ta == 0)
+    {
+       
+        // Child process
+        printf("Process Ta: PID = %d\n", getpid()); //getpid gets the file id
+
+        // Close the reading end of the pipe in the child
+        close(fdTa[0]);
+
+        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
+        char fd_str[10];
+        snprintf(fd_str, sizeof(fd_str), "%d", fdTa[1]);//saying whatever it reads store in fd_str
+
+        // Execute process_P with fd[1] as a command-line argument
+        
+        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); // launch another process if condition met
+       
+        // If exec fails
+        perror("exec failed");
+        exit(1);
+    
     }
 
     wait(NULL);
