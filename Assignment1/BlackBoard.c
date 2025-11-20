@@ -308,16 +308,16 @@ int main(int argc, char *argv[]) {
             float T= t_intial / 1000.0; // Convert ms to seconds
             
             // Denominator is the same for both: (M + KT)
-            float denom = mass + (k_intial * t_intial);
+            float denom = mass + (k_intial * T);
             
             // Constant term for history: (2M + KT)
-            float history_factor = (2 * mass) + (k_intial * t_intial);
+            float history_factor = (2 * mass) + (k_intial * T);
 
             // Formula: x_i = [ F*T^2 + x_{i-1}*(2M+KT) - M*x_{i-2} ] / (M+KT)
-            float num_x = (Fx * t_intial * t_intial) + (x_prev * history_factor) - (mass * x_prev2);
+            float num_x = (Fx * T * T) + (x_prev * history_factor) - (mass * x_prev2);
             x_curr = num_x / denom;
 
-            float num_y = (Fy * t_intial * t_intial) + (y_prev * history_factor) - (mass * y_prev2);
+            float num_y = (Fy * T * T) + (y_prev * history_factor) - (mass * y_prev2);
             y_curr = num_y / denom;
     
 
