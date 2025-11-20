@@ -61,7 +61,6 @@ void Parameter_File() {
 }
 
 
-
 int main(int argc, char *argv[]) 
 {
 
@@ -78,20 +77,19 @@ int main(int argc, char *argv[])
     char buffer[100];
 
     const long target_interval_ms   = 7000; // 7 seconds
-    long last_target_ms   = current_millis();
+    long last_target_ms = current_millis();
 
     while(1){
         //write it to pipe
         sleep(1);
         long now_ms = current_millis();
-        if (now_ms - last_target_ms >= target_interval_ms) {
-            srand(time(NULL) + 1);
+        if (last_target_ms - now_ms >= target_interval_ms) {
             x_coord_Ta = 1 + rand() % (window_width - 10);
             y_coord_Ta = 1 + rand() % (window_height - 10);
             last_target_ms = now_ms;
+            sprintf(buffer, "%d,%d", x_coord_Ta, y_coord_Ta);
+            write(fdTa, buffer, strlen(buffer)+1);
         }
-        sprintf(buffer, "%d,%d", x_coord_Ta, y_coord_Ta);
-        write(fdTa, buffer, strlen(buffer)+1);
     }
 
 }

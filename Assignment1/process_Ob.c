@@ -79,21 +79,18 @@ int main(int argc, char *argv[])
     char buffer[100];
 
     const long obstacle_interval_ms = 5000;
-    long last_obstacle_ms = current_millis();
+    long last_obstacle_ms = current_millis(); // Reset timer
 
     while(1){
         //write it to pipe
-        sleep(1);
         long now_ms = current_millis();
-        if (now_ms - last_obstacle_ms >= obstacle_interval_ms) {
-            srand(time(NULL));
+        if (last_obstacle_ms - now_ms >= obstacle_interval_ms) {
             x_coord_Ob = 1 + rand() % (window_width - 10);
             y_coord_Ob = 1 + rand() % (window_height - 10);
             last_obstacle_ms = now_ms;
-            }
-        sprintf(buffer, "%d,%d", x_coord_Ob, y_coord_Ob);
-        write(fdOb, buffer, strlen(buffer)+1);
-
+            sprintf(buffer, "%d,%d", x_coord_Ob, y_coord_Ob);
+            write(fdOb, buffer, strlen(buffer)+1);
+        }
     }
  
 }

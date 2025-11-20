@@ -110,22 +110,6 @@ static void layout_and_draw(WINDOW *win) {
     refresh();
     wrefresh(win);
 }
-
-void obstacle_generation(WINDOW* win, int x_coord, int y_coord){
-    
-    if (x_coord != 0 && y_coord != 0){
-        mvwprintw(win, y_coord, x_coord, "%s", "O");
-        wrefresh(win);
-    }
-}
-
-void target_generation(WINDOW* win, int x_coord, int y_coord){
-    
-    if (x_coord != 0 && y_coord != 0){
-        mvwprintw(win, y_coord, x_coord, "%s", "T");
-        wrefresh(win);
-    }
-}
   
 int main(int argc, char *argv[]) {
 
@@ -185,7 +169,6 @@ int main(int argc, char *argv[]) {
     int cur_ob_x = -1, cur_ob_y = -1;
     int cur_ta_x = -1, cur_ta_y = -1;
                    
-    int ch=getch();
     int newH = H - wh;
     int newW = W - ww;
 
@@ -198,6 +181,17 @@ int main(int argc, char *argv[]) {
     float y_prev2 = newH / 2.0;
 
         while (running) {
+            int ch = getch(); // Non-blocking due to timeout()
+
+            if (ch == KEY_RESIZE) {
+                // Update ncurses internal structures for new dimensions
+                resize_term(0, 0);
+                layout_and_draw(win);
+            }
+
+            // Clear window for new frame
+            werase(win);
+            box(win, 0, 0);
 
             FD_ZERO(&readfds);
             FD_SET(fdIn, &readfds);
@@ -206,7 +200,7 @@ int main(int argc, char *argv[]) {
 
             // FIX: Reset timer every loop
             tv.tv_sec = 0;
-            tv.tv_usec = t_intial * 1000; 
+            tv.tv_usec = 0; // Use a zero-timeout for select to poll
 
             // 2. WAIT FOR INPUT / TIMER
             retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
@@ -244,27 +238,14 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }                
-                
-        
-
-            if (ch == KEY_RESIZE) {
-                // Update ncurses internal structures for new dimensions
-                resize_term(0, 0);          // o resizeterm(0, 0)
-                layout_and_draw(win);       // calcullate layout and draw again
-            }
 
             //.....Drone..... 
-            // --- INITIALIZATION ---
-            // We use floats for physics precision, cast to int for drawing.
-            // Start in the middle of the screen.
-            mvwprintw(win, term_h/2, term_w/2, "%s","+");
             
             if (sIn[0]=='q'){
                 running = false;
                 exit(0);
             }
             if (sIn[0]== 'a'){
-                mvwprintw(win,term_h/2, term_w/2,"%s", "+");
                 wrefresh(win);
             }
             if (sIn[0] == 'p'){
@@ -342,22 +323,23 @@ int main(int argc, char *argv[]) {
             // If we hit a wall, we clamp the position and reset history 
             // to kill the momentum (otherwise it sticks/vibrates).
             
-            if (x_curr >= newW - 1) {
-                x_curr = newW - 1;
+            if (x_curr >= ww - 1) {
+                x_curr = ww - 1;
                 x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
             } else if (x_curr <= 0) {
                 x_curr = 0;
                 x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
             }
 
-            if (y_curr >= newH - 1) {
-                y_curr = newH - 1;
+            if (y_curr >= wh - 1) {
+                y_curr = wh - 1;
                 y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
             } else if (y_curr <= 0) {
                 y_curr = 0;
                 y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
             }
 
+            // --- 4. DRAWING ---
             // Draw Obstacle (if valid)
             if (cur_ob_x > 0 && cur_ob_y > 0) 
                 mvwprintw(win, cur_ob_y, cur_ob_x, "O");
@@ -366,19 +348,20 @@ int main(int argc, char *argv[]) {
             if (cur_ta_x > 0 && cur_ta_y > 0) 
                 mvwprintw(win, cur_ta_y, cur_ta_x, "T");
 
-            // 4. DRAWING
-            mvprintw((int)y_curr, (int)x_curr, "H");
+            // Draw the drone
+            mvwprintw(win, (int)y_curr, (int)x_curr, "+");
 
-            // 5. SHIFT HISTORY (Prepare for next loop)
-            // Oldest becomes older
+            // --- 5. SHIFT HISTORY (Prepare for next loop) ---
             x_prev2 = x_prev;
             y_prev2 = y_prev;
-            
-            // Current becomes previous
             x_prev = x_curr;
             y_prev = y_curr;
             
+            // --- 6. REFRESH SCREEN ---
             wrefresh(win);
+
+            // --- 7. FRAME DELAY ---
+            usleep(t_intial * 1000);
         }
     
     // Cleanup
