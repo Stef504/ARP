@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
     WINDOW *win = newwin(win_h, win_w, 0, 0);
     layout_and_draw(win);
 
-    if (argc < 3) 
+    if (argc < 4) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         endwin();
@@ -181,19 +181,21 @@ int main(int argc, char *argv[]) {
     if (fdOb > maxfd) maxfd = fdOb;
     if (fdTa > maxfd) maxfd = fdTa;
 
-    while (1){
+    // Persistent Coordinates (Initialize off-screen or valid default)
+    int cur_ob_x = -1, cur_ob_y = -1;
+    int cur_ta_x = -1, cur_ta_y = -1;
                    
-        int ch=getch();
-        int newH = H - wh;
-        int newW = W - ww;
+    int ch=getch();
+    int newH = H - wh;
+    int newW = W - ww;
 
-        float x_curr = newW / 2.0;
-        float x_prev = newW / 2.0;
-        float x_prev2 = newW / 2.0;
+    float x_curr = newW / 2.0;
+    float x_prev = newW / 2.0;
+    float x_prev2 = newW / 2.0;
 
-        float y_curr = newH / 2.0;
-        float y_prev = newH / 2.0;
-        float y_prev2 = newH / 2.0;
+    float y_curr = newH / 2.0;
+    float y_prev = newH / 2.0;
+    float y_prev2 = newH / 2.0;
 
         while (running) {
 
@@ -202,33 +204,48 @@ int main(int argc, char *argv[]) {
             FD_SET(fdOb, &readfds);
             FD_SET(fdTa, &readfds);
 
-            retval= select(maxfd + 1, &readfds, NULL, NULL, &tv);
+            // FIX: Reset timer every loop
+            tv.tv_sec = 0;
+            tv.tv_usec = t_intial * 1000; 
 
-            if (retval==-1){
-                perror("select()");
+            // 2. WAIT FOR INPUT / TIMER
+            retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+
+            if (retval == -1) {
                 break;
-            }    
-            else if( retval > 0) {
-                if(FD_ISSET(fdIn, &readfds)){
-                    
-                    ssize_t bytesIn = read(fdIn, strIn, sizeof(strIn)-1); 
-                
-                    if (bytesIn <= 0) 
-                    {
-                        printf("Pipe closed\n");
-                        break;
-                    }
-
-                    strIn[bytesIn] = '\0';
-                    sscanf(strIn, format_stringIn, sIn);
-                    // TODO: Process keyboard imput
-                    // wrefresh(win);
-
+            } 
+            else if (retval > 0) {
+                // --- INPUT PIPE ---
+                if (FD_ISSET(fdIn, &readfds)) {
+                    ssize_t bytes = read(fdIn, strIn, sizeof(strIn)-1);
+                    if (bytes > 0) {
+                        strIn[bytes] = '\0';
+                        sscanf(strIn, "%s", sIn);
+                    } else { running = false; } // Pipe closed
                 }
 
+                // --- OBSTACLE PIPE ---
+                if (FD_ISSET(fdOb, &readfds)) {
+                    ssize_t bytes = read(fdOb, strOb, sizeof(strOb)-1);
+                    if (bytes > 0) {
+                        strOb[bytes] = '\0';
+                        // FIX: Just update variable, don't draw yet
+                        sscanf(strOb, "%d,%d", &cur_ob_x, &cur_ob_y);
+                    }
+                }
+
+                // --- TARGET PIPE ---
+                if (FD_ISSET(fdTa, &readfds)) {
+                    ssize_t bytes = read(fdTa, strTa, sizeof(strTa)-1);
+                    if (bytes > 0) {
+                        strTa[bytes] = '\0';
+                        // FIX: Just update variable, don't draw yet
+                        sscanf(strTa, "%d,%d", &cur_ta_x, &cur_ta_y);
+                    }
+                }
+            }                
                 
-                
-            }
+        
 
             if (ch == KEY_RESIZE) {
                 // Update ncurses internal structures for new dimensions
@@ -341,8 +358,15 @@ int main(int argc, char *argv[]) {
                 y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
             }
 
+            // Draw Obstacle (if valid)
+            if (cur_ob_x > 0 && cur_ob_y > 0) 
+                mvwprintw(win, cur_ob_y, cur_ob_x, "O");
+
+            // Draw Target (if valid)
+            if (cur_ta_x > 0 && cur_ta_y > 0) 
+                mvwprintw(win, cur_ta_y, cur_ta_x, "T");
+
             // 4. DRAWING
-            clear();
             mvprintw((int)y_curr, (int)x_curr, "H");
 
             // 5. SHIFT HISTORY (Prepare for next loop)
@@ -353,14 +377,15 @@ int main(int argc, char *argv[]) {
             // Current becomes previous
             x_prev = x_curr;
             y_prev = y_curr;
-    
+            
+            wrefresh(win);
         }
-    }
-
+    
     // Cleanup
     delwin(win);
     endwin();
     return 0;
+
 }
 
 

@@ -41,11 +41,21 @@ int main()
         //this reads so close writing end
         close(fdIn[1]);
 
+        //close ob and ta writing ends in bb
+        close(fdOb[1]);
+        close(fdTa[1]);
+
         // Execute process_P with fd[1] as a command-line argument
         char fdIn_str[10];
         snprintf(fdIn_str, sizeof(fdIn_str), "%d", fdIn[0]);
+
+        char fdOb_str[10];
+        snprintf(fdOb_str, sizeof(fdOb_str), "%d", fdOb[0]);
+
+        char fdTa_str[10];
+        snprintf(fdTa_str, sizeof(fdTa_str), "%d", fdTa[0]);
         
-        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str, (char *)NULL); // launch another process if condition met
+        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str,fdOb_str,fdTa_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");
