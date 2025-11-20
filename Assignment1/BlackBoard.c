@@ -262,6 +262,7 @@ int main(int argc, char *argv[]) {
                 y_prev2=term_h/2;
                 wrefresh(win);
             }
+
             if (sIn[0] == 'p') {
                 mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
                 mvwprintw(win, (int)y_curr, (int)x_curr, "+");
@@ -321,7 +322,7 @@ int main(int argc, char *argv[]) {
                     // redraw the pause message/frame so UI stays alive
                     werase(win);
                     box(win, 0, 0);
-                    mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
+                    mvwprintw(win, 0, 0, "Game Paused, Press 'u' to Resume");
                     if (cur_ob_x > 0 && cur_ob_y > 0) mvwprintw(win, cur_ob_y, cur_ob_x, "O");
                     if (cur_ta_x > 0 && cur_ta_y > 0) mvwprintw(win, cur_ta_y, cur_ta_x, "T");
                     mvwprintw(win, (int)y_curr, (int)x_curr, "+");
