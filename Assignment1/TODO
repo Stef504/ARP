@@ -1,0 +1,11 @@
+TODO List:
+- Understand why obstacles and targets are not displayed correctly and fix the error
+- Add a drone process in which to manage drone dynamics (?), with respective pipe communication
+- Make the drone faster
+- Modify comments to make them less ChatGPT-ish
+- Add dynamics for break
+
+Next assignments:
+- Add watchdog process
+- Add Logfile
+- Handle repulsive forces sent by obstacles and the window border
