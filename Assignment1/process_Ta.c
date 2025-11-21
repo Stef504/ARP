@@ -20,6 +20,7 @@ static long current_millis() {
     return tv.tv_sec * 1000L + tv.tv_usec / 1000L;
 }
 
+// Same function as in BlackBoard, but read only the first two lines of the parameter file
 void Parameter_File() {
     FILE* file = fopen("Parameter_File.txt", "r");
     if (file == NULL) {
@@ -30,24 +31,19 @@ void Parameter_File() {
     char line[256];
     int line_number = 0;
 
-    // --- 2. Read the file line by line ---
     while (fgets(line, sizeof(line), file)) {
         line_number++;
 
-        // --- 3. Tokenize the *current* line ---
-        char* tokens[10]; // An array to hold tokens for this ONE line
+        char* tokens[10]; 
         int token_count = 0;
         char* token = strtok(line, "_");
 
         while (token != NULL && token_count < 10) {
-            tokens[token_count] = token; // Add token to our array
+            tokens[token_count] = token; 
             token_count++;
-            token = strtok(NULL, "_"); // Get next token
+            token = strtok(NULL, "_"); 
         }
 
-        // --- 4. Assign values based on line number ---
-        // We use a 'switch' to make it cleaner than many 'if' statements.
-        // We also check 'token_count' to avoid crashing if a line is blank.
         switch (line_number) {
             case 1:
                 if (token_count > 2) window_width = atoi(tokens[2]);
@@ -69,27 +65,26 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         exit(1);
     }
-
-    srand(time(NULL) + getpid());
-
-    //convert the argument to an integer file descriptor
+    
+    // Convert the argument to an integer file descriptor
     int fdTa = atoi(argv[1]);
     char buffer[100];
 
-    const long target_interval_ms   = 7000; // 7 seconds
+    // Target generation every 7 seconds
+    const long target_interval_ms = 7000; 
     long last_target_ms = current_millis();
+    srand(time(NULL) + getpid());
 
     while(1){
-        //write it to pipe
-        sleep(1);
         long now_ms = current_millis();
-        if (last_target_ms - now_ms >= target_interval_ms) {
+        if (now_ms - last_target_ms >= target_interval_ms) {
             x_coord_Ta = 1 + rand() % (window_width - 10);
             y_coord_Ta = 1 + rand() % (window_height - 10);
             last_target_ms = now_ms;
             sprintf(buffer, "%d,%d", x_coord_Ta, y_coord_Ta);
             write(fdTa, buffer, strlen(buffer)+1);
         }
+        usleep(100000); // Sleep 100ms to avoid busy-waiting
     }
 
 }

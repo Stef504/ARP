@@ -19,9 +19,19 @@ int main()
 
  //check if pipes initialize
     if (pipe(fdIn) == -1) {
-        perror("pipe failed");
+        perror("pipe fdIn failed");
         exit(1);
-    }   
+    }
+    
+    if (pipe(fdOb) == -1) {
+        perror("pipe fdOb failed");
+        exit(1);
+    }
+    
+    if (pipe(fdTa) == -1) {
+        perror("pipe fdTa failed");
+        exit(1);
+    }
 
     sleep(2);
 
@@ -36,28 +46,21 @@ int main()
     {
        
         // Child process
-        printf("Process BB: PID = %d\n", getpid()); //getpid gets the file id
+        printf("Process BB: PID = %d\n", getpid());
 
-        //this reads so close writing end
+        // Closing writing end from pipes linked to main 
         close(fdIn[1]);
-
-        //close ob and ta writing ends in bb
         close(fdOb[1]);
         close(fdTa[1]);
 
         // Execute process_P with fd[1] as a command-line argument
-        char fdIn_str[10];
+        char fdIn_str[10], fdOb_str[10], fdTa_str[10];
+
         snprintf(fdIn_str, sizeof(fdIn_str), "%d", fdIn[0]);
-
-        char fdOb_str[10];
         snprintf(fdOb_str, sizeof(fdOb_str), "%d", fdOb[0]);
-
-        char fdTa_str[10];
         snprintf(fdTa_str, sizeof(fdTa_str), "%d", fdTa[0]);
         
-        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str,fdOb_str,fdTa_str, (char *)NULL); // launch another process if condition met
-       
-        // If exec fails
+        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str,fdOb_str,fdTa_str, (char *)NULL);
         perror("exec failed");
         exit(1);
      
@@ -75,21 +78,15 @@ int main()
     if (In == 0)
     {
        
-        // Child process
-        printf("Process In: PID = %d\n", getpid()); //getpid gets the file id
+        printf("Process In: PID = %d\n", getpid()); 
 
-        // Close the reading end of the pipe in the child
         close(fdIn[0]);
 
-        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
         char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdIn[1]);//saying whatever it reads store in fd_str
-
-        // Execute process_P with fd[1] as a command-line argument
+        snprintf(fd_str, sizeof(fd_str), "%d", fdIn[1]);
         
-        execlp("konsole", "konsole", "-e", "./process_In", fd_str, (char *)NULL); // launch another process if condition met
+        execlp("konsole", "konsole", "-e", "./process_In", fd_str, (char *)NULL); 
        
-        // If exec fails
         perror("exec failed");
         exit(1);
      
@@ -109,25 +106,18 @@ int main()
     if (Ob == 0)
     {
        
-        // Child process
-        printf("Process Ob: PID = %d\n", getpid()); //getpid gets the file id
+        printf("Process Ob: PID = %d\n", getpid()); 
 
-        // Close the reading end of the pipe in the child
         close(fdOb[0]);
 
-        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
         char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdOb[1]);//saying whatever it reads store in fd_str
-
-        // Execute process_P with fd[1] as a command-line argument
+        snprintf(fd_str, sizeof(fd_str), "%d", fdOb[1]);
         
-        execlp("./process_Ob", "./process_Ob", fd_str, (char *)NULL);// launch another process if condition met
+        execlp("./process_Ob", "./process_Ob", fd_str, (char *)NULL);
        
-        // If exec fails
         perror("exec failed");
         exit(1);
      
-
     }
 
     pid_t Ta=fork();
@@ -141,26 +131,25 @@ int main()
     if (Ta == 0)
     {
        
-        // Child process
-        printf("Process Ta: PID = %d\n", getpid()); //getpid gets the file id
+        printf("Process Ta: PID = %d\n", getpid()); 
 
-        // Close the reading end of the pipe in the child
         close(fdTa[0]);
 
-        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
         char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdTa[1]);//saying whatever it reads store in fd_str
-
-        // Execute process_P with fd[1] as a command-line argument
+        snprintf(fd_str, sizeof(fd_str), "%d", fdTa[1]);
         
-        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); // launch another process if condition met
+        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); 
        
-        // If exec fails
         perror("exec failed");
         exit(1);
     
     }
 
+    // Wait for all child processes
+    wait(NULL);
+    wait(NULL);
+    wait(NULL);
     wait(NULL);
 
+    return 0;
 }

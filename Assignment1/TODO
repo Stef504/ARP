@@ -1,8 +1,8 @@
 TODO List:
 - Understand why obstacles and targets are not displayed correctly and fix the error
 - Add a drone process in which to manage drone dynamics (?), with respective pipe communication
+- Implement "stack" structure for obstacles and targets
 - Make the drone faster
-- Modify comments to make them less ChatGPT-ish
 - Add dynamics for break
 
 Next assignments:
