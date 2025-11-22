@@ -20,18 +20,19 @@ typedef struct {
 } Point;
 
 // Global variables and parameters
-int window_width = 0;
-int window_height = 0;
-int rph_intial = 0;
-double eta_intial = 0.0;
-int force_intial = 0;
-int mass = 1;        
-int k_intial = 0;
-int working_area = 0;
-int t_intial = 100;  
+int window_width ;
+int window_height;
+int rph_intial;
+double eta_intial;
+int force_intial ;
+int mass;        
+int k_intial ;
+int working_area;
+int t_intial;  
 int H = 0, W = 0;
 int wh = 0, ww = 0;
 bool running = true;
+bool skip_drone_update = false;
 
 Point obstacles[MAX_ITEMS];
 int obs_head = 0;
@@ -192,13 +193,13 @@ int main(int argc, char *argv[]) {
     int newH = H - wh;
     int newW = W - ww;
 
-    float x_curr = term_w / 2.0;
-    float x_prev = term_w / 2.0;
-    float x_prev2 = term_w / 2.0;
+    float x_curr = ww / 2.0;
+    float x_prev = ww / 2.0;
+    float x_prev2 = ww / 2.0;
 
-    float y_curr = newH / 2.0;
-    float y_prev = newH / 2.0;
-    float y_prev2 = newH / 2.0;
+    float y_curr = wh / 2.0;
+    float y_prev = wh / 2.0;
+    float y_prev2 = wh / 2.0;
 
     // Initial handshake with drone to get starting position
     snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
@@ -208,19 +209,29 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-        while (running) {
-            int ch = wgetch(win); // poll window for keys (returns KEY_RESIZE)
-            sIn[0]='\0';
+    while (running) {
+        int ch = wgetch(win); // poll window for keys (returns KEY_RESIZE)
+        sIn[0]='\0';
 
         if (ch == KEY_RESIZE) {
             // Update ncurses internal structures for new dimensions
             resize_term(0, 0);
             layout_and_draw(win);
+            // Clamp current position to new window bounds (in case it's off-screen now)
+            // Clamp to window dimensions to prevent vanishing
+            x_curr = ww / 2;
+            y_curr = wh / 2;
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+            // 4. SET THE FLAG
+            // This tells the code below: "Don't believe the drone for one frame"
+            skip_drone_update = true;
         }
+        
 
-        // Clear window for new frame
-        werase(win);
-        box(win, 0, 0);
+            // Clear window for new frame
+            werase(win);
+            box(win, 0, 0);
 
             FD_ZERO(&readfds);
             FD_SET(fdToBB, &readfds);
@@ -232,7 +243,7 @@ int main(int argc, char *argv[]) {
             tv.tv_sec = 0;
             tv.tv_usec = 100000;
 
-        retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+            retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
             if (retval == -1) break;
             else if (retval > 0) {
@@ -257,76 +268,87 @@ int main(int argc, char *argv[]) {
                 if (FD_ISSET(fdToBB, &readfds)) {
                     ssize_t bytes = read(fdToBB, sToBB, sizeof(sToBB)-1);
                     if (bytes > 0) {
-                        sToBB[bytes] = '\0';
-                        sscanf(sToBB, "%f,%f", &x_curr, &y_curr);
-                    } else { running = false; } // Pipe closed
+                        if (skip_drone_update) {
+                        // We read the data to clear the pipe, 
+                        // BUT we do NOT update x_curr/y_curr.
+                        // We just throw this "old" packet away.
+                        skip_drone_update = false; // Reset flag for next time
+                        } 
+                        else {
+                            sToBB[bytes] = '\0';
+                            sscanf(sToBB, "%f,%f", &x_curr, &y_curr);
+                        }   
+                    }
+                    else { running = false; } // Pipe closed
+                }
+                
+
+                // Receiving coordinates from obstacle pipe
+                if (FD_ISSET(fdOb, &readfds)) {
+                    ssize_t bytes = read(fdOb, strOb, sizeof(strOb)-1);
+                    if (bytes > 0) {
+                        strOb[bytes] = '\0';
+                        int new_x, new_y;
+                        sscanf(strOb, format_stringOb, &new_x, &new_y);
+                        // Clamp to window dimensions to prevent vanishing
+                        if (new_x >= ww - 1) new_x = ww - 2;
+                        if (new_y >= wh - 1) new_y = wh - 2;
+                        
+                        // Store in array
+                        obstacles[obs_head].x = new_x;
+                        obstacles[obs_head].y = new_y;
+                        obs_head = (obs_head + 1) % MAX_ITEMS;
+                        if (obs_count < MAX_ITEMS) obs_count++;
+                    }
                 }
 
-            // Receiving coordinates from obstacle pipe
-            if (FD_ISSET(fdOb, &readfds)) {
-                ssize_t bytes = read(fdOb, strOb, sizeof(strOb)-1);
-                if (bytes > 0) {
-                    strOb[bytes] = '\0';
-                    int new_x, new_y;
-                    sscanf(strOb, format_stringOb, &new_x, &new_y);
-                    // Clamp to window dimensions to prevent vanishing
-                    if (new_x >= ww - 1) new_x = ww - 2;
-                    if (new_y >= wh - 1) new_y = wh - 2;
-                    
-                    // Store in array
-                    obstacles[obs_head].x = new_x;
-                    obstacles[obs_head].y = new_y;
-                    obs_head = (obs_head + 1) % MAX_ITEMS;
-                    if (obs_count < MAX_ITEMS) obs_count++;
-                }
-            }
+                // Reading coordinates from target pipe
+                if (FD_ISSET(fdTa, &readfds)) {
+                    ssize_t bytes = read(fdTa, strTa, sizeof(strTa)-1);
+                    if (bytes > 0) {
+                        strTa[bytes] = '\0';
+                        int new_x, new_y;
+                        sscanf(strTa, format_stringTa, &new_x, &new_y);
+                        // Clamp to window dimensions to prevent vanishing
+                        if (new_x >= ww - 1) new_x = ww - 2;
+                        if (new_y >= wh - 1) new_y = wh - 2;
 
-            // Reading coordinates from target pipe
-            if (FD_ISSET(fdTa, &readfds)) {
-                ssize_t bytes = read(fdTa, strTa, sizeof(strTa)-1);
-                if (bytes > 0) {
-                    strTa[bytes] = '\0';
-                    int new_x, new_y;
-                    sscanf(strTa, format_stringTa, &new_x, &new_y);
-                    // Clamp to window dimensions to prevent vanishing
-                    if (new_x >= ww - 1) new_x = ww - 2;
-                    if (new_y >= wh - 1) new_y = wh - 2;
-
-                    // Store in array
-                    targets[tar_head].x = new_x;
-                    targets[tar_head].y = new_y;
-                    tar_head = (tar_head + 1) % MAX_ITEMS;
-                    if (tar_count < MAX_ITEMS) tar_count++;
+                        // Store in array
+                        targets[tar_head].x = new_x;
+                        targets[tar_head].y = new_y;
+                        tar_head = (tar_head + 1) % MAX_ITEMS;
+                        if (tar_count < MAX_ITEMS) tar_count++;
+                    }
                 }
-            }
-        }                
+            }                
 
         
 
         if (sIn[0]=='q'){
             running = false;
         }
-         if (sIn[0] == 'a'){
-                mvwprintw(win, y_curr, x_curr, " " );
-                mvwprintw(win, term_h/2,term_w/2, "+");
-                x_curr=term_w/2;
-                y_curr=term_h/2;
 
-               /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
-                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
-                //sending new x,y values to drone process        
-                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
-                wrefresh(win);
-            }
+         if (sIn[0] == 'a'){
+            mvwprintw(win, y_curr, x_curr, " " );
+            mvwprintw(win, wh/2,ww/2, "+");
+            x_curr=wh/2;
+            y_curr=ww/2;
+
+            /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            //sending new x,y values to drone process        
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+            wrefresh(win);
+        }
 
             if (sIn[0] == 'p') {
                 mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
                 wrefresh(win);
 
-            fd_set pause_fds;
-            struct timeval pause_tv;
-            int pause_ret;
-            int pause_ch = -1;
+                fd_set pause_fds;
+                struct timeval pause_tv;
+                int pause_ret;
+                int pause_ch = -1;
 
                 while (running) {
                     // check keyboard
@@ -391,6 +413,8 @@ int main(int argc, char *argv[]) {
                 werase(win);
                 box(win, 0, 0);
                 mvwprintw(win, 0, 0, "Game Paused, Press 'u' to Resume");
+            
+
                 for(int i=0; i<obs_count; i++) {
                      if (obstacles[i].x > 0 && obstacles[i].y > 0) 
                         mvwprintw(win, obstacles[i].y, obstacles[i].x, "O");
@@ -402,7 +426,9 @@ int main(int argc, char *argv[]) {
                 mvwprintw(win, (int)y_curr, (int)x_curr, "+");
                 wrefresh(win);
             }
+        }
 
+            if (sIn[0] == 'u') {
                 // Clear pause message after resume
                 mvwprintw(win, 0, 0, "                             ");
                 mvwprintw(win, (int)y_curr, (int)x_curr, "+");
@@ -460,16 +486,16 @@ int main(int argc, char *argv[]) {
                 mvwprintw(win, targets[i].y, targets[i].x, "T");
         }
 
-            // Draw the drone 
-            mvwprintw(win, (int)y_curr, (int)x_curr, "+");
-            
-            // --- 6. REFRESH SCREEN ---
-            wrefresh(win);
+        // Draw the drone 
+        mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+        
+        // --- 6. REFRESH SCREEN ---
+        wrefresh(win);
 
-            // --- 7. FRAME DELAY ---
-            usleep(1000); 
-        }
-    
+        // --- 7. FRAME DELAY ---
+        usleep(1000); 
+        
+    }
     // Cleanup
     delwin(win);
     endwin();

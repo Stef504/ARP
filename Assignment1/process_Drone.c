@@ -133,6 +133,7 @@ int main(int argc, char *argv[])
     float x_curr = 0, y_curr = 0;
     float x_prev = 0, y_prev = 0;
     float x_prev2 = 0, y_prev2 = 0;
+    float x_update =0 , y_update =0;
 
     // ---------------------------------------------------------
     // HANDSHAKE: Wait for Blackboard to say where to start
@@ -167,41 +168,47 @@ int main(int argc, char *argv[])
 
     while(running){
  
-    FD_ZERO(&readfds);
-    FD_SET(fdIn, &readfds);
-    FD_SET(fdFromBB, &readfds);
+        FD_ZERO(&readfds);
+        FD_SET(fdIn, &readfds);
+        FD_SET(fdFromBB, &readfds);
 
-    // FIX: Reset timer every loop
-    tv.tv_sec = 0;
-    tv.tv_usec = 0; // Use a zero-timeout for select to poll
+        // FIX: Reset timer every loop
+        tv.tv_sec = 0;
+        tv.tv_usec = 0; // Use a zero-timeout for select to poll
 
-    // 2. WAIT FOR INPUT / TIMER
-    retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+        // 2. WAIT FOR INPUT / TIMER
+        retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
-    if (retval == -1) {
-        break;
-    } 
-    else if (retval > 0) {
-        // --- INPUT PIPE ---
-        if (FD_ISSET(fdIn, &readfds)) {
-            ssize_t bytes = read(fdIn, strIn, sizeof(strIn)-1);
-            if (bytes > 0) {
-                strIn[bytes] = '\0';
-                sscanf(strIn, "%s", sIn);
-            } else { running = false; } // Pipe closed
-        }
-
-        // --- Read from black board PIPE ---
-        if (FD_ISSET(fdFromBB, &readfds)) {
-            ssize_t bytes = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
-            if (bytes > 0) {
-                strFromBB[bytes] = '\0';
-                // reading our x,y positions from bb
-                sscanf(strFromBB, "%f,%f",&x_curr, &y_curr);
+        if (retval == -1) {
+            break;
+        } 
+        else if (retval > 0) {
+            // --- INPUT PIPE ---
+            if (FD_ISSET(fdIn, &readfds)) {
+                ssize_t bytes = read(fdIn, strIn, sizeof(strIn)-1);
+                if (bytes > 0) {
+                    strIn[bytes] = '\0';
+                    sscanf(strIn, "%s", sIn);
+                } else { running = false; } // Pipe closed
             }
-        }
-    }                
-    
+
+            // --- Read from black board PIPE ---
+            if (FD_ISSET(fdFromBB, &readfds)) {
+                ssize_t bytes = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
+                if (bytes > 0) {
+                    strFromBB[bytes] = '\0';
+                    // reading our x,y positions from bb only when there is something to read
+                    //so like resize,a..
+                    sscanf(strFromBB, "%f,%f",&x_update, &y_update);
+                    // RESET PHYSICS HISTORY
+                    x_prev = x_update;
+                    x_prev2 = x_update;
+                    y_prev = y_update;
+                    y_prev2 = y_update;
+                }
+            }
+        }                
+        
           // --- SEQUENCE LOGIC ---
         char input_key = sIn[0];
         
@@ -233,11 +240,11 @@ int main(int argc, char *argv[])
                 ssize_t b = 0;
                 while (b <= 0) b = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
                 strFromBB[b] = '\0';
-                sscanf(strFromBB, "%f,%f", &x_curr, &y_curr);
+                sscanf(strFromBB, "%f,%f", &x_update, &y_update);
                 
                 // Reset Physics State
-                x_prev = x_curr; x_prev2 = x_curr;
-                y_prev = y_curr; y_prev2 = y_curr;
+                x_prev = x_update; x_prev2 = x_update;
+                y_prev = y_update; y_prev2 = y_update;
                 boost_level = 0; active_key = ' ';
             }
             // Case E: Same Direction -> Increase Speed
@@ -265,7 +272,7 @@ int main(int argc, char *argv[])
         sIn[0] = ' '; 
 
         // --- CALCULATE FORCE ---
-        float multiplier = 1.0 + (boost_level * 0.1);
+        float multiplier = 1.0 + (boost_level * 0.5);
         float cur_force = force_intial * multiplier;
         float cur_diag = diag_force * multiplier;
 
