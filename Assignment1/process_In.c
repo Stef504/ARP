@@ -9,11 +9,13 @@
 #include <curses.h>
 #include <sys/time.h>
 #include <termios.h>
+#include <signal.h>
 
 int main(int argc, char *argv[]) 
 {
+    signal(SIGPIPE, SIG_IGN);
 
-    if (argc < 2) {
+    if (argc < 3) {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         exit(1);
     }
@@ -21,6 +23,9 @@ int main(int argc, char *argv[])
     //Convert the argument to an integer file descriptor
     int fdIn = atoi(argv[1]);
     char buffer[100];
+    char *path_bb = argv[2];
+    int fdIn_BB = open(path_bb, O_WRONLY);
+    if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }
 
     // Setting up the terminal to read single characters without waiting for Enter
     struct termios old_tio, new_tio;
@@ -45,10 +50,26 @@ int main(int argc, char *argv[])
         if (read(STDIN_FILENO, &c, 1) > 0) 
         {
             write(fdIn, &c, 1);
-            write(fdIn, &newline, 1);
-            if (c == 'q') {
-                break;
+
+            if (c == 'q' || c == 'a' || c == 'p' || c == 'u') {
+                
+                
+                write(fdIn_BB, &c, 1); 
+                write(fdIn_BB, &newline, 1);     
+                
+                if (c == 'q') {
+                // --- 3. RESTORE TERMINAL ---
+                // This is critical, or your terminal will be "broken" after
+                tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
+                close(fdIn_BB);
+                close(fdIn);
+                exit(EXIT_SUCCESS);
             }
+        }
+            // 2. Write the "automatic Enter"
+            write(fdIn, &newline, 1);
+               
+        
         } 
         else 
         {

@@ -12,7 +12,7 @@
 #include <time.h>
 #include <math.h>
 #include <stdbool.h>
-
+#include <errno.h>
 #define MAX_ITEMS 20
 typedef struct {
     int x;
@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
-
+    
     int term_h, term_w;
     getmaxyx(stdscr, term_h, term_w);
     /* use parameter file values but clamp to terminal size */
@@ -148,8 +148,11 @@ int main(int argc, char *argv[]) {
     /* newwin(nlines, ncols, y, x) -> newwin(height, width, ...) */
     WINDOW *win = newwin(win_w, win_h, 0, 0);
     layout_and_draw(win);
+    // allow window to report keys / KEY_RESIZE without blocking
+    keypad(win, TRUE);
+    wtimeout(win, 50); // wait up to 50 ms in wgetch, then continue to select()
 
-    if (argc < 4) 
+    if (argc < 6) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         endwin();
@@ -157,28 +160,31 @@ int main(int argc, char *argv[]) {
     }
 
     // Convert the argument to an integer file descriptor
-    int fdIn = atoi(argv[1]);
-    char bufferIn[100];
-    int fdOb = atoi(argv[2]);
-    char bufferOb[100];
-    int fdTa = atoi(argv[3]);
-    char bufferTa[100];
+    int fdToBB = atoi(argv[1]);   // Drone Dynamics (Read)
+    int fdFromBB = atoi(argv[2]);   // Drone Dynamics (Write - for init)
+    int fdOb = atoi(argv[3]);    // Obstacle
+    int fdTa = atoi(argv[4]);    // Target
+    char *path_bb = argv[5];
+    int fdIn_BB = open(path_bb, O_RDONLY | O_NONBLOCK);
+    if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }
 
     struct timeval tv;
     int retval;
-    char strIn[100], strOb[100], strTa[100]; 
-    char sIn[10], sOb[10], sTa[10];
+    char strToBB[135],strFromBB[135], strOb[100], strTa[100], strIn[100]; 
+    char sToBB[135],sFromBB[135], sOb[135], sTa[135],sIn[10];
     char format_stringIn[100] = "%s";
     char format_stringOb[100] = "%d,%d";
     char format_stringTa[100] = "%d,%d";
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
-    timeout(t_intial);
+    
 
     fd_set readfds;
-    int maxfd = fdIn;
+
+    int maxfd = fdToBB;
     if (fdOb > maxfd) maxfd = fdOb;
     if (fdTa > maxfd) maxfd = fdTa;
+    if (fdIn_BB > maxfd) maxfd = fdIn_BB;
 
     // Persistent Coordinates (Initialize off-screen or valid default)
     // Removed single coordinates in favor of arrays
@@ -186,20 +192,25 @@ int main(int argc, char *argv[]) {
     int newH = H - wh;
     int newW = W - ww;
 
-    float x_curr = newW / 2.0;
-    float x_prev = newW / 2.0;
-    float x_prev2 = newW / 2.0;
+    float x_curr = term_w / 2.0;
+    float x_prev = term_w / 2.0;
+    float x_prev2 = term_w / 2.0;
 
     float y_curr = newH / 2.0;
     float y_prev = newH / 2.0;
     float y_prev2 = newH / 2.0;
 
+    // Initial handshake with drone to get starting position
+    snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+    write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+
     if(running == false){
         exit(0);
     }
 
-    while (running) {
-        int ch = getch(); // Non-blocking due to timeout()
+        while (running) {
+            int ch = wgetch(win); // poll window for keys (returns KEY_RESIZE)
+            sIn[0]='\0';
 
         if (ch == KEY_RESIZE) {
             // Update ncurses internal structures for new dimensions
@@ -211,29 +222,45 @@ int main(int argc, char *argv[]) {
         werase(win);
         box(win, 0, 0);
 
-        FD_ZERO(&readfds);
-        FD_SET(fdIn, &readfds);
-        FD_SET(fdOb, &readfds);
-        FD_SET(fdTa, &readfds);
+            FD_ZERO(&readfds);
+            FD_SET(fdToBB, &readfds);
+            FD_SET(fdOb, &readfds);
+            FD_SET(fdTa, &readfds);
+            FD_SET(fdIn_BB, &readfds);
 
-        // FIX: Reset timer every loop
-        tv.tv_sec = 0;
-        tv.tv_usec = 0; // Use a zero-timeout for select to poll
+            // small timeout so loop stays responsive
+            tv.tv_sec = 0;
+            tv.tv_usec = 100000;
 
         retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
-        if (retval == -1) {
-            break;
-        } 
-        else if (retval > 0) {
-            // Receiving data from input pipe
-            if (FD_ISSET(fdIn, &readfds)) {
-                ssize_t bytes = read(fdIn, strIn, sizeof(strIn)-1);
-                if (bytes > 0) {
-                    strIn[bytes] = '\0';
-                    sscanf(strIn, "%s", sIn);
-                } else { running = false; } 
-            }
+            if (retval == -1) break;
+            else if (retval > 0) {
+                
+                //--- SIMPLIFIED READ INPUT ---
+                if (FD_ISSET(fdIn_BB, &readfds)) {
+                    // 1. Clear buffer to prevent junk
+                    memset(strIn, 0, sizeof(strIn)); 
+                    
+                    // 2. Read whatever is in the pipe
+                    ssize_t bytes = read(fdIn_BB, strIn, sizeof(strIn)-1);
+                    
+                    if (bytes > 0) {
+                        // 3. The Magic Fix: sscanf automatically skips '\n' and ' '
+                        // It grabs the first actual letter into sIn
+                        sscanf(strIn, "%1s", sIn); 
+                    } 
+                    else { running = false; } // Pipe closed
+                }           
+
+                //....Drone Dynamics...The posistions x, y current
+                if (FD_ISSET(fdToBB, &readfds)) {
+                    ssize_t bytes = read(fdToBB, sToBB, sizeof(sToBB)-1);
+                    if (bytes > 0) {
+                        sToBB[bytes] = '\0';
+                        sscanf(sToBB, "%f,%f", &x_curr, &y_curr);
+                    } else { running = false; } // Pipe closed
+                }
 
             // Receiving coordinates from obstacle pipe
             if (FD_ISSET(fdOb, &readfds)) {
@@ -274,62 +301,62 @@ int main(int argc, char *argv[]) {
             }
         }                
 
-        float Fx = 0;
-        float Fy = 0;
-        float Fxy = 0;
-        float diag_force = (float)force_intial * M_SQRT1_2;
+        
 
         if (sIn[0]=='q'){
             running = false;
         }
-        if (sIn[0]== 'a'){
-            mvwprintw(win, term_h/2,term_w/2, "+");
-            mvwprintw(win, term_h/2,term_w/2, " ");
-            x_curr=term_w/2;
-            y_curr=term_h/2;
-            x_prev=term_w/2;
-            y_prev=term_h/2;
-            x_prev2=term_w/2;
-            y_prev2=term_h/2;
-            wrefresh(win);
-        }
+         if (sIn[0] == 'a'){
+                mvwprintw(win, y_curr, x_curr, " " );
+                mvwprintw(win, term_h/2,term_w/2, "+");
+                x_curr=term_w/2;
+                y_curr=term_h/2;
 
-        if (sIn[0] == 'p') {
-            mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
-            mvwprintw(win, (int)y_curr, (int)x_curr, "+");
-            wrefresh(win);
+               /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+                //sending new x,y values to drone process        
+                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+                wrefresh(win);
+            }
+
+            if (sIn[0] == 'p') {
+                mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
+                wrefresh(win);
 
             fd_set pause_fds;
             struct timeval pause_tv;
             int pause_ret;
             int pause_ch = -1;
 
-            while (running) {
-                pause_ch = getch();
-                if (pause_ch == 'u') break;
+                while (running) {
+                    // check keyboard
+                    pause_ch = getch();
+                    sIn[0]='\0';
+                    if (pause_ch == 'u') break;
 
-                FD_ZERO(&pause_fds);
-                FD_SET(fdIn, &pause_fds);
-                FD_SET(fdOb, &pause_fds);
-                FD_SET(fdTa, &pause_fds);
-                pause_tv.tv_sec = 0;
-                pause_tv.tv_usec = 100 * 1000; // 100 ms
+                    // set up select on fds (zero timeout so we poll periodically)
+                    FD_ZERO(&pause_fds);
+                    FD_SET(fdIn_BB, &pause_fds);
+                    FD_SET(fdOb, &pause_fds);
+                    FD_SET(fdTa, &pause_fds);
+                    pause_tv.tv_sec = 0;
+                    pause_tv.tv_usec = 100 * 1000; // 100 ms
 
-                pause_ret = select(maxfd + 1, &pause_fds, NULL, NULL, &pause_tv);
-                if (pause_ret > 0) {
-                    // If input pipe has data, read and update sIn
-                    if (FD_ISSET(fdIn, &pause_fds)) {
-                        ssize_t bytes = read(fdIn, strIn, sizeof(strIn) - 1);
-                        if (bytes > 0) {
-                            strIn[bytes] = '\0';
-                            sscanf(strIn, "%s", sIn);
-                            if (sIn[0] == 'u') break;
-                        } else {
-                            running = false;
-                            break;
+                    pause_ret = select(maxfd + 1, &pause_fds, NULL, NULL, &pause_tv);
+                    if (pause_ret > 0) {
+                        // If input pipe has data, read and update sIn
+                        if (FD_ISSET(fdIn_BB, &pause_fds)) {
+                            ssize_t bytes = read(fdIn_BB, strIn, sizeof(strIn) - 1);
+                            if (bytes > 0) {
+                                strIn[bytes] = '\0';
+                                sscanf(strIn, "%s", sIn);
+                                if (sIn[0] == 'u') break;
+                            } else {
+                                running = false;
+                                break;
+                            }
                         }
-                    }
-                    // Still consume obstacle/target updates so they remain visible
+                        // Still consume obstacle/target updates so they remain visible
                     if (FD_ISSET(fdOb, &pause_fds)) {
                         ssize_t bytes = read(fdOb, strOb, sizeof(strOb) - 1);
                         if (bytes > 0) {
@@ -376,81 +403,49 @@ int main(int argc, char *argv[]) {
                 wrefresh(win);
             }
 
-            // Clear pause message after resume
-            mvwprintw(win, 0, 0, "                             ");
-            mvwprintw(win, (int)y_curr, (int)x_curr, "+");
-            wrefresh(win);
-        }
-        
+                // Clear pause message after resume
+                mvwprintw(win, 0, 0, "                             ");
+                mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+                wrefresh(win);
+            }
 
-        // 3. INPUT MAPPING (The Fix)
-        // We apply +/- signs directly to Fx and Fy here.
-        switch (sIn[0]) {
-            // STRAIGHT
-            case 'e': Fy = -force_intial; break; // Up
-            case 'c': Fy =  force_intial; break; // Down
-            case 's': Fx = -force_intial; break; // Left
-            case 'f': Fx =  force_intial; break; // Right
+            // 3. WALL COLLISION (No Wrap-Around)
+            // If we hit a wall, we clamp the position and reset history 
+            // to kill the momentum (otherwise it sticks/vibrates).
             
-            // DIAGONAL (Split the force into X and Y components)
-            case 'w': // Up-Left (-X, -Y)
-                Fx = -diag_force; 
-                Fy = -diag_force; 
-                break;
-            case 'r': // Up-Right (+X, -Y)
-                Fx =  diag_force; 
-                Fy = -diag_force; 
-                break;
-            case 'x': // Down-Left (-X, +Y)
-                Fx = -diag_force; 
-                Fy =  diag_force; 
-                break;
-            case 'v': // Down-Right (+X, +Y)
-                Fx =  diag_force; 
-                Fy =  diag_force; 
-                break;
-            
-            case 'q': running = false; break;
-        }
+            if (x_curr >= ww - 1) {
+                x_curr = ww - 1;
+                x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
+                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+                //sending new x,y values to drone process        
+                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+            } else if (x_curr <= 0) {
+                x_curr = 0;
+                //x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
+                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+                //sending new x,y values to drone process        
+                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+            }
 
-        // 2. PHYSICS CALCULATION (The Equation)
-        // We calculate X and Y independently to allow 8-direction movement.
-        
-        float T= t_intial / 1000.0; // Convert ms to seconds
-        
-        // Denominator is the same for both: (M + KT)
-        float denom = mass + (k_intial * T);
-        
-        // Constant term for history: (2M + KT)
-        float history_factor = (2 * mass) + (k_intial * T);
-
-        // Formula: x_i = [ F*T^2 + x_{i-1}*(2M+KT) - M*x_{i-2} ] / (M+KT)
-        float num_x = (Fx * T * T) + (x_prev * history_factor) - (mass * x_prev2);
-        x_curr = num_x / denom;
-
-        float num_y = (Fy * T * T) + (y_prev * history_factor) - (mass * y_prev2);
-        y_curr = num_y / denom;
-
-
-        // 3. WALL COLLISION (No Wrap-Around)
-        // If we hit a wall, we clamp the position and reset history 
-        // to kill the momentum (otherwise it sticks/vibrates).
-        
-        if (x_curr >= ww - 1) {
-            x_curr = ww - 1;
-            x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
-        } else if (x_curr <= 0) {
-            x_curr = 0;
-            x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
-        }
-
-        if (y_curr >= wh - 1) {
-            y_curr = wh - 1;
-            y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
-        } else if (y_curr <= 0) {
-            y_curr = 0;
-            y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
-        }
+            if (y_curr >= wh - 1) {
+                y_curr = wh - 1;
+                //y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
+                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+                //sending new x,y values to drone process        
+                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+                
+            } else if (y_curr <= 0) {
+                y_curr = 0;
+                //y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
+                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+                //sending new x,y values to drone process        
+                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+                
+            }
 
         // --- 4. DRAWING ---
         // Draw Obstacles
@@ -465,21 +460,15 @@ int main(int argc, char *argv[]) {
                 mvwprintw(win, targets[i].y, targets[i].x, "T");
         }
 
-        // Draw the drone
-        mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+            // Draw the drone 
+            mvwprintw(win, (int)y_curr, (int)x_curr, "+");
+            
+            // --- 6. REFRESH SCREEN ---
+            wrefresh(win);
 
-        // --- 5. SHIFT HISTORY (Prepare for next loop) ---
-        x_prev2 = x_prev;
-        y_prev2 = y_prev;
-        x_prev = x_curr;
-        y_prev = y_curr;
-        
-        // --- 6. REFRESH SCREEN ---
-        wrefresh(win);
-
-        // --- 7. FRAME DELAY ---
-        usleep(t_intial * 1000);
-    }
+            // --- 7. FRAME DELAY ---
+            usleep(1000); 
+        }
     
     // Cleanup
     delwin(win);

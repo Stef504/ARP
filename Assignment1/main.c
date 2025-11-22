@@ -9,9 +9,11 @@
 #include <curses.h>
 #include <sys/time.h>
 
+
 int main()
 {
-    int fdIn[2], fdOb[2], fdTa[2];
+    int fdIn[2], fdOb[2], fdTa[2],fdToBB[2], fdFromBB[2];
+    mkfifo("/tmp/pipe_blackboard_input", 0666);
  
     char buf[100];
     int toggle = 0;
@@ -31,10 +33,22 @@ int main()
     if (pipe(fdTa) == -1) {
         perror("pipe fdTa failed");
         exit(1);
-    }
+    }   
+
+    if (pipe(fdToBB) == -1) {
+        perror("pipe failed");
+        exit(1);
+    } 
+
+    if (pipe(fdFromBB) == -1) {
+        perror("pipe failed");
+        exit(1);
+    } 
+    
 
     sleep(2);
 
+    //.....BlackBoard.....
     pid_t BB=fork();
     if (BB < 0)
    {
@@ -48,25 +62,40 @@ int main()
         // Child process
         printf("Process BB: PID = %d\n", getpid());
 
-        // Closing writing end from pipes linked to main 
-        close(fdIn[1]);
+        //So fdDrR - close the writing because we read the dynamics 
+        close(fdToBB[1]);
+        //so fdDrW - close the reading because we if there is an Ob/Ta
+        close(fdFromBB[0]);
+
+        //close ob and ta writing ends in bb
         close(fdOb[1]);
         close(fdTa[1]);
 
         // Execute process_P with fd[1] as a command-line argument
-        char fdIn_str[10], fdOb_str[10], fdTa_str[10];
-
-        snprintf(fdIn_str, sizeof(fdIn_str), "%d", fdIn[0]);
+        char fdOb_str[10];
         snprintf(fdOb_str, sizeof(fdOb_str), "%d", fdOb[0]);
+        char fdTa_str[10];
         snprintf(fdTa_str, sizeof(fdTa_str), "%d", fdTa[0]);
+
+        //drone pipes
+        char fdToBB_str[10];
+        snprintf(fdToBB_str, sizeof(fdToBB_str), "%d", fdToBB[0]);
+
+        char fdFromBB_str[10];
+        snprintf(fdFromBB_str, sizeof(fdFromBB_str), "%d", fdFromBB[1]);
+
         
-        execlp("konsole", "konsole", "-e", "./BlackBoard", fdIn_str,fdOb_str,fdTa_str, (char *)NULL);
+        
+        execlp("konsole", "konsole", "-e", "./BlackBoard",fdToBB_str,fdFromBB_str,fdOb_str,fdTa_str,"/tmp/pipe_blackboard_input", (char *)NULL); // launch another process if condition met
+       
+        // If exec fails
         perror("exec failed");
         exit(1);
      
 
     }
 
+    //.....Input.....
     pid_t In=fork();
 
         if (In < 0)
@@ -82,10 +111,15 @@ int main()
 
         close(fdIn[0]);
 
+
+        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
         char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdIn[1]);
+        snprintf(fd_str, sizeof(fd_str), "%d", fdIn[1]);//saying whatever it reads store in fd_str
+
+
+        // Execute process_P with fd[1] as a command-line argument
         
-        execlp("konsole", "konsole", "-e", "./process_In", fd_str, (char *)NULL); 
+        execlp("konsole", "konsole", "-e", "./process_In", fd_str, "/tmp/pipe_blackboard_input",(char *)NULL); // launch another process if condition met
        
         perror("exec failed");
         exit(1);
@@ -94,7 +128,7 @@ int main()
     }
 
     
-
+    //.....Obstacle.....
     pid_t Ob=fork();
 
     if (Ob < 0)
@@ -120,6 +154,8 @@ int main()
      
     }
 
+
+    //.....Targets.....
     pid_t Ta=fork();
 
     if (Ta < 0)
@@ -131,15 +167,64 @@ int main()
     if (Ta == 0)
     {
        
-        printf("Process Ta: PID = %d\n", getpid()); 
+        // Child process
+        printf("Process Ta: PID = %d\n", getpid()); //getpid gets the file id
 
+        // Close the reading end of the pipe in the child
         close(fdTa[0]);
 
+        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
         char fd_str[10];
-        snprintf(fd_str, sizeof(fd_str), "%d", fdTa[1]);
+        snprintf(fd_str, sizeof(fd_str), "%d", fdTa[1]);//saying whatever it reads store in fd_str
+
+        // Execute process_P with fd[1] as a command-line argument
         
-        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); 
+        execlp("./process_Ta", "./process_Ta", fd_str, (char *)NULL); // launch another process if condition met
        
+        // If exec fails
+        perror("exec failed");
+        exit(1);
+    
+    }
+
+    //.....Drone.....
+    pid_t Dr=fork();
+
+    if (Dr < 0)
+    {
+    perror("Error in fork");
+    return 1;
+    }
+
+    if (Dr == 0)
+    {
+       
+        // Child process
+        printf("Process Ta: PID = %d\n", getpid()); //getpid gets the file id
+
+        // Close the read end, as we write to bb
+        close(fdToBB[0]);
+
+        //close the write end, as we read from bb
+        close(fdFromBB[1]);
+
+        // Close the writing end of the pipe in the child
+        close(fdIn[1]);
+
+        // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
+        char fdtoBB_str[10];
+        snprintf(fdtoBB_str, sizeof(fdtoBB_str), "%d", fdToBB[1]);//saying whatever it reads store in fd_str
+
+        char fdFromBB_str[10];
+        snprintf(fdFromBB_str, sizeof(fdFromBB_str), "%d", fdFromBB[0]);//saying whatever it reads store in fd_str
+
+        char fdIn_str[10];
+        snprintf(fdIn_str, sizeof(fdIn_str), "%d", fdIn[0]);
+        // Execute process_P with fd[1] as a command-line argument
+        
+        execlp("./process_Drone", "./process_Drone",fdIn_str,fdFromBB_str,fdtoBB_str, (char *)NULL); // launch another process if condition met
+       
+        // If exec fails
         perror("exec failed");
         exit(1);
     
