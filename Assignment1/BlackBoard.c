@@ -256,6 +256,18 @@ int main(int argc, char *argv[]) {
         }
         
 
+            // Clamp current position to new window bounds (in case it's off-screen now)
+            // Clamp to window dimensions to prevent vanishing
+            x_curr = ww / 2;
+            y_curr = wh / 2;
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+            // 4. SET THE FLAG
+            // This tells the code below: "Don't believe the drone for one frame"
+            skip_drone_update = true;
+        }
+        
+
             // Clear window for new frame
             werase(win);
             box(win, 0, 0);
