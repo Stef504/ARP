@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 {
     Parameter_File();
 
-    if (argc < 4) {
+    if (argc < 5) {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         exit(1);
     }
@@ -115,6 +115,7 @@ int main(int argc, char *argv[])
     int fdIn = atoi(argv[1]);
     int fdFromBB= atoi(argv[2]);
     int fdToBB = atoi(argv[3]);
+    int fdRepul = atoi(argv[4]);
 
     // Avoid process termination on broken pipe and print FD debug
     signal(SIGPIPE, SIG_IGN);
@@ -124,7 +125,7 @@ int main(int argc, char *argv[])
     struct timeval tv={0,0};
     int retval;
     char strIn[135],sOut[135],strFromBB[100]; 
-    char sIn[10];
+    char sIn[10],sRepul[10];
 
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
@@ -158,6 +159,7 @@ int main(int argc, char *argv[])
 
     int maxfd = fdIn;
     if (fdFromBB > maxfd) maxfd = fdFromBB;
+    if (fdRepul > maxfd) maxfd = fdRepul;
  
     float diag_force = (float)force_intial * M_SQRT1_2;
     float T= t_intial / 1000.0; // Convert ms to seconds
@@ -171,6 +173,7 @@ int main(int argc, char *argv[])
         FD_ZERO(&readfds);
         FD_SET(fdIn, &readfds);
         FD_SET(fdFromBB, &readfds);
+        FD_SET(fdRepul, &readfds);
 
         // FIX: Reset timer every loop
         tv.tv_sec = 0;
@@ -207,6 +210,15 @@ int main(int argc, char *argv[])
                     y_prev2 = y_update;
                 }
             }
+
+            //....Read repulsion keys
+            if (FD_ISSET(fdRepul,&readfds)){
+                 ssize_t bytes = read(fdIn, sRepul, sizeof(sRepul)-1);
+                if (bytes > 0) {
+                    sRepul[bytes] = '\0';
+                    sscanf(strIn, "%s", sRepul);
+                } else { running = false; } // Pipe closed
+            }
         }                
         
           // --- SEQUENCE LOGIC ---
@@ -234,19 +246,6 @@ int main(int argc, char *argv[])
                     if (sIn[0] == 'u') break;
                 }
             }
-            // Case D: Reset Logic
-            /*else if (input_key == 'a') {
-                // Read Reset Position from Blackboard
-                ssize_t b = 0;
-                while (b <= 0) b = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
-                strFromBB[b] = '\0';
-                sscanf(strFromBB, "%f,%f", &x_update, &y_update);
-                
-                // Reset Physics State
-                x_prev = x_update; x_prev2 = x_update;
-                y_prev = y_update; y_prev2 = y_update;
-                boost_level = 0; active_key = ' ';
-            }*/
             // Case E: Same Direction -> Increase Speed
             else if (input_key == active_key) {
                 if (boost_level < 2) boost_level++; 

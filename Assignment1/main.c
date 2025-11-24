@@ -12,7 +12,7 @@
 
 int main()
 {
-    int fdIn[2], fdOb[2], fdTa[2],fdToBB[2], fdFromBB[2];
+    int fdIn[2], fdOb[2], fdTa[2],fdToBB[2], fdFromBB[2],fdRepul[2];
     mkfifo("/tmp/pipe_blackboard_input", 0666);
  
     char buf[100];
@@ -45,6 +45,11 @@ int main()
         exit(1);
     } 
     
+    if (pipe(fdRepul) == -1) {
+        perror("pipe failed");
+        exit(1);
+    }
+    
 
     sleep(2);
 
@@ -71,6 +76,9 @@ int main()
         close(fdOb[1]);
         close(fdTa[1]);
 
+        //close fdRepul read end
+        close(fdRepul[0]);
+
         // Execute process_P with fd[1] as a command-line argument
         char fdOb_str[10];
         snprintf(fdOb_str, sizeof(fdOb_str), "%d", fdOb[0]);
@@ -84,9 +92,11 @@ int main()
         char fdFromBB_str[10];
         snprintf(fdFromBB_str, sizeof(fdFromBB_str), "%d", fdFromBB[1]);
 
+        char fdRepul_str[10];
+        snprintf(fdRepul_str,sizeof(fdRepul),"%d",fdRepul[1]);
         
         
-        execlp("konsole", "konsole", "-e", "./BlackBoard",fdToBB_str,fdFromBB_str,fdOb_str,fdTa_str,"/tmp/pipe_blackboard_input", (char *)NULL); // launch another process if condition met
+        execlp("konsole", "konsole", "-e", "./BlackBoard",fdToBB_str,fdFromBB_str,fdOb_str,fdTa_str,"/tmp/pipe_blackboard_input",fdRepul_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");
@@ -211,6 +221,9 @@ int main()
         // Close the writing end of the pipe in the child
         close(fdIn[1]);
 
+        //close fdRepul write end
+        close(fdRepul[1]);
+
         // Convert fd[1] to a string to pass as an argument, fd[1] is for writing
         char fdtoBB_str[10];
         snprintf(fdtoBB_str, sizeof(fdtoBB_str), "%d", fdToBB[1]);//saying whatever it reads store in fd_str
@@ -221,8 +234,11 @@ int main()
         char fdIn_str[10];
         snprintf(fdIn_str, sizeof(fdIn_str), "%d", fdIn[0]);
         // Execute process_P with fd[1] as a command-line argument
+
+        char fdRepul_str[10];
+        snprintf(fdRepul_str,sizeof(fdRepul),"%d",fdRepul[1]);
         
-        execlp("./process_Drone", "./process_Drone",fdIn_str,fdFromBB_str,fdtoBB_str, (char *)NULL); // launch another process if condition met
+        execlp("./process_Drone", "./process_Drone",fdIn_str,fdFromBB_str,fdtoBB_str,fdRepul_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");

@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
     keypad(win, TRUE);
     wtimeout(win, 50); // wait up to 50 ms in wgetch, then continue to select()
 
-    if (argc < 6) 
+    if (argc < 7) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         endwin();
@@ -168,11 +168,12 @@ int main(int argc, char *argv[]) {
     char *path_bb = argv[5];
     int fdIn_BB = open(path_bb, O_RDONLY | O_NONBLOCK);
     if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }
+    int fdRepul =atoi(argv[7]);
 
     struct timeval tv;
     int retval;
     char strToBB[135],strFromBB[135], strOb[100], strTa[100], strIn[100]; 
-    char sToBB[135],sFromBB[135], sOb[135], sTa[135],sIn[10];
+    char sToBB[135],sFromBB[135], sOb[135], sTa[135],sIn[10],sRepul[10];
     char format_stringIn[100] = "%s";
     char format_stringOb[100] = "%d,%d";
     char format_stringTa[100] = "%d,%d";
@@ -418,49 +419,8 @@ int main(int argc, char *argv[]) {
                         sIn[0]=' ';
                         werase(win);
                         box(win, 0, 0);
-                        mvwprintw(win, 0, 0, "                       ");
-            
-                    
-                        // Still consume obstacle/target updates so they remain visible
-                        /*if (FD_ISSET(fdOb, &pause_fds)) {
-                            ssize_t bytes = read(fdOb, strOb, sizeof(strOb) - 1);
-                            if (bytes > 0) {
-                                strOb[bytes] = '\0';
-                                int new_x, new_y;
-                                sscanf(strOb, "%d,%d", &new_x, &new_y);
-                                if (new_x >= ww - 1) new_x = ww - 2;
-                                if (new_y >= wh - 1) new_y = wh - 2;
-                                obstacles[obs_head].x = new_x;
-                                obstacles[obs_head].y = new_y;
-                                obs_head = (obs_head + 1) % MAX_ITEMS;
-                                if (obs_count < MAX_ITEMS) obs_count++;
-                            }
-                        }
-                        if (FD_ISSET(fdTa, &pause_fds)) {
-                            ssize_t bytes = read(fdTa, strTa, sizeof(strTa) - 1);
-                            if (bytes > 0) {
-                                strTa[bytes] = '\0';
-                                int new_x, new_y;
-                                sscanf(strTa, "%d,%d", &new_x, &new_y);
-                                if (new_x >= ww - 1) new_x = ww - 2;
-                                if (new_y >= wh - 1) new_y = wh - 2;
-                                targets[tar_head].x = new_x;
-                                targets[tar_head].y = new_y;
-                                tar_head = (tar_head + 1) % MAX_ITEMS;
-                                if (tar_count < MAX_ITEMS) tar_count++;
-                            }
-                        }*/
-                    
-
-                
+                        mvwprintw(win, 0, 0, "                       ");               
             }
-
-            /*if (sIn[0] == 'u') {
-                // Clear pause message after resume
-                mvwprintw(win, 0, 0, "                             ");
-                mvwprintw(win, (int)y_curr, (int)x_curr, "+");
-                wrefresh(win);
-            }*/
 
             // 3. WALL COLLISION (No Wrap-Around)
             // If we hit a wall, we clamp the position and reset history 
@@ -503,8 +463,41 @@ int main(int argc, char *argv[]) {
         // --- 4. DRAWING ---
         // Draw Obstacles
         for(int i=0; i<obs_count; i++) {
-             if (obstacles[i].x > 0 && obstacles[i].y > 0) 
+            if (obstacles[i].x > 0 && obstacles[i].y > 0){ 
                 mvwprintw(win, obstacles[i].y, obstacles[i].x, "O");
+            }
+
+            int distance = sqrt(pow(obstacles[i].x - x_curr, 2) + pow(obstacles[i].y - y_curr, 2));
+            if(distance <= rph_intial){
+                int ch_repel;
+                if(x_curr < obstacles[i].x ){
+                    if(y_curr == obstacles[i].y){
+                        ch_repel = 's';
+                    } else if(y_curr < obstacles[i].y){
+                        ch_repel = 'w';
+                    } else {
+                        ch_repel = 'x';
+                    }
+                } else if(x_curr > obstacles[i].x){
+                    if(y_curr == obstacles[i].y){
+                        ch_repel = 'f';
+                    } else if(y_curr < obstacles[i].y){
+                        ch_repel = 'r';
+                    } else {
+                        ch_repel = 'v';
+                    }
+                } else {
+                    if(y_curr > obstacles[i].y){
+                        ch_repel = 'c';
+                    }else if(y_curr < obstacles[i].y){
+                        ch_repel = 'e';
+                    }
+                    }
+                }
+            }
+            //change where you want to put it
+            snprintf(sRepul, sizeof(sRepul), "%s",ch_repel);
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
         }
 
         // Draw Targets
@@ -522,6 +515,7 @@ int main(int argc, char *argv[]) {
         // --- 7. FRAME DELAY ---
         usleep(1000); 
         
+
     }
     // Cleanup
     delwin(win);
