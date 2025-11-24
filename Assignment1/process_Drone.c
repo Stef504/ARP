@@ -20,13 +20,13 @@ int window_height;
 int rph_intial;
 double eta_intial;
 int force_intial;
-int mass;        // sensible default
+int mass;        
 int k_intial;
 int working_area ;
-int t_intial ;  // safe default timeout (ms)
+int t_intial ;  
 bool running = true;
 
-// --- HELPER: Identify Opposite Keys ---
+// Function to identify opposite keys
 char get_opposite_key(char key) {
     switch (key) {
         case 'w': return 'v'; // Up-Left  vs Down-Right
@@ -51,12 +51,10 @@ void Parameter_File() {
     char line[256];
     int line_number = 0;
 
-    // --- 2. Read the file line by line ---
     while (fgets(line, sizeof(line), file)) {
         line_number++;
 
-        // --- 3. Tokenize the *current* line ---
-        char* tokens[10]; // An array to hold tokens for this ONE line
+        char* tokens[10]; 
         int token_count = 0;
         char* token = strtok(line, "_");
 
@@ -66,9 +64,6 @@ void Parameter_File() {
             token = strtok(NULL, "_"); // Get next token
         }
 
-        // --- 4. Assign values based on line number ---
-        // We use a 'switch' to make it cleaner than many 'if' statements.
-        // We also check 'token_count' to avoid crashing if a line is blank.
         switch (line_number) {
             case 1:
                 if (token_count > 2) window_width = atoi(tokens[2]);
@@ -111,7 +106,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    //convert the argument to an integer file descriptor
+    // Convert the argument to an integer file descriptor
     int fdIn = atoi(argv[1]);
     int fdFromBB= atoi(argv[2]);
     int fdToBB = atoi(argv[3]);
@@ -130,24 +125,17 @@ int main(int argc, char *argv[])
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
 
-    // Physics Variables
     float x_curr = 0, y_curr = 0;
     float x_prev = 0, y_prev = 0;
     float x_prev2 = 0, y_prev2 = 0;
     float x_update =0 , y_update =0;
 
-    // ---------------------------------------------------------
-    // HANDSHAKE: Wait for Blackboard to say where to start
-    // ---------------------------------------------------------
-    
-    // 1. BLOCKING READ: The program STOPS here until Blackboard writes
     ssize_t bytes = 0;
     while (bytes <= 0) {
         bytes = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
     }
     strFromBB[bytes] = '\0';
 
-    // 2. Parse the Center Coordinates
     sscanf(strFromBB, "%f,%f",&x_curr, &y_curr);
     
     x_prev = x_curr;
@@ -164,7 +152,6 @@ int main(int argc, char *argv[])
     float diag_force = (float)force_intial * M_SQRT1_2;
     float T= t_intial / 1000.0; // Convert ms to seconds
 
-    // --- MOMENTUM STATE VARIABLES ---
     char active_key = ' '; // The key currently driving the physics
     int boost_level = 0;   // 0 = 0%, 1 = 10%, 2 = 20% (Max)
 
@@ -175,18 +162,15 @@ int main(int argc, char *argv[])
         FD_SET(fdFromBB, &readfds);
         FD_SET(fdRepul, &readfds);
 
-        // FIX: Reset timer every loop
         tv.tv_sec = 0;
         tv.tv_usec = 0; // Use a zero-timeout for select to poll
 
-        // 2. WAIT FOR INPUT / TIMER
         retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
         if (retval == -1) {
             break;
         } 
         else if (retval > 0) {
-            // --- INPUT PIPE ---
             if (FD_ISSET(fdIn, &readfds)) {
                 ssize_t bytes = read(fdIn, strIn, sizeof(strIn)-1);
                 if (bytes > 0) {
@@ -195,15 +179,12 @@ int main(int argc, char *argv[])
                 } else { running = false; } // Pipe closed
             }
 
-            // --- Read from black board PIPE ---
+            // Read from black board PIPE
             if (FD_ISSET(fdFromBB, &readfds)) {
                 ssize_t bytes = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
                 if (bytes > 0) {
                     strFromBB[bytes] = '\0';
-                    // reading our x,y positions from bb only when there is something to read
-                    //so like resize,a..
                     sscanf(strFromBB, "%f,%f",&x_update, &y_update);
-                    // RESET PHYSICS HISTORY
                     x_prev = x_update;
                     x_prev2 = x_update;
                     y_prev = y_update;
@@ -211,7 +192,7 @@ int main(int argc, char *argv[])
                 }
             }
 
-            //....Read repulsion keys
+            // Read repulsion keys
             if (FD_ISSET(fdRepul,&readfds)){
                  ssize_t bytes = read(fdRepul, sRepul, sizeof(sRepul)-1);
                 if (bytes > 0) {
@@ -226,12 +207,10 @@ int main(int argc, char *argv[])
             }
         }                
         
-          // --- SEQUENCE LOGIC ---
         char input_key = sIn[0];
-        
-        // Only process if we received a real command (not empty space)
+
         if (input_key != ' ' && input_key != 0) {
-            
+
             // Case A: Quit
             if (input_key == 'q') running = false;
 
@@ -275,12 +254,10 @@ int main(int argc, char *argv[])
         // BUT active_key persists, so the engine keeps running.
         sIn[0] = ' '; 
 
-        // --- CALCULATE FORCE ---
         float multiplier = 1.0 + (boost_level * 0.5);
         float cur_force = force_intial * multiplier;
         float cur_diag = diag_force * multiplier;
 
-        // --- APPLY FORCE (Based on ACTIVE KEY, not just input) ---
         float Fx = 0, Fy = 0;
 
          switch (active_key) {
@@ -293,12 +270,7 @@ int main(int argc, char *argv[])
             case 'x': Fx = -cur_diag; Fy =  cur_diag; break;
             case 'v': Fx =  cur_diag; Fy =  cur_diag; break;
         }
-    //.....Drone..... 
-    // 2. PHYSICS CALCULATION (The Equation)
-    // We calculate X and Y independently to allow 8-direction movement.
 
-    
-      // --- PHYSICS INTEGRATION (Euler) ---
     float denom = mass + (k_intial * T);
     float history_factor = (2 * mass) + (k_intial * T);
 
@@ -308,13 +280,13 @@ int main(int argc, char *argv[])
     float num_y = (Fy * T * T) + (y_prev * history_factor) - (mass * y_prev2);
     float y_new = num_y / denom;
     
-     // --- UPDATE HISTORY ---
+     // Update history
     x_prev2 = x_prev; x_prev = x_new;
     y_prev2 = y_prev; y_prev = y_new;
     x_curr = x_new;
     y_curr = y_new;
     
-    //sends back the current position to bb
+    // Sends the current position back to bb
     snprintf(sOut, sizeof(sOut), "%d,%d", (int)(x_curr), (int)(y_curr));
     ssize_t w = write(fdToBB, sOut, strlen(sOut) + 1);
     if (w > 0) {

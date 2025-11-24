@@ -38,7 +38,8 @@ int main(int argc, char *argv[])
     new_tio.c_cc[VTIME] = 0; 
     tcsetattr(STDIN_FILENO, TCSANOW, &new_tio); 
 
-    printf("BEGIN GAME!:D\n"); 
+    printf("BEGIN GAME!:D\n");
+    printf("Controls: 'w,e,r,f,v,c,x,s' - movement, 'a' - reset position, 'p' - pause, 'u' - unpause, 'q' - quit\n"); 
 
     // Characters to be written
     // One is the typed character, the other is the "automatic Enter"
