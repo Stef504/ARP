@@ -213,11 +213,16 @@ int main(int argc, char *argv[])
 
             //....Read repulsion keys
             if (FD_ISSET(fdRepul,&readfds)){
-                 ssize_t bytes = read(fdIn, sRepul, sizeof(sRepul)-1);
+                 ssize_t bytes = read(fdRepul, sRepul, sizeof(sRepul)-1);
                 if (bytes > 0) {
                     sRepul[bytes] = '\0';
-                    sscanf(strIn, "%s", sRepul);
-                } else { running = false; } // Pipe closed
+                    strncpy(sIn, sRepul, sizeof(sIn) - 1);
+                    sIn[sizeof(sIn) - 1] = '\0';
+                } else { 
+                    if (bytes == 0) { // Pipe closed
+                        running = false;
+                    }
+                }
             }
         }                
         

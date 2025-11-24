@@ -500,6 +500,23 @@ int main(int argc, char *argv[]) {
                 write(fdRepul, sRepul, strlen(sRepul) + 1);
             }
         }
+
+        // Check for boundary repulsion
+        if (x_curr <= rph_intial) {
+            snprintf(sRepul, sizeof(sRepul), "f");
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        } else if (x_curr >= ww - rph_intial) {
+            snprintf(sRepul, sizeof(sRepul), "s");
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        }
+
+        if (y_curr <= rph_intial) {
+            snprintf(sRepul, sizeof(sRepul), "c");
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        } else if (y_curr >= wh - rph_intial) {
+            snprintf(sRepul, sizeof(sRepul), "e");
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        }
             
         // Draw Targets
         for(int i=0; i<tar_count; i++) {
