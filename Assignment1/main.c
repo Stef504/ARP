@@ -236,7 +236,7 @@ int main()
         // Execute process_P with fd[1] as a command-line argument
 
         char fdRepul_str[10];
-        snprintf(fdRepul_str,sizeof(fdRepul),"%d",fdRepul[1]);
+        snprintf(fdRepul_str,sizeof(fdRepul_str),"%d",fdRepul[0]);
         
         execlp("./process_Drone", "./process_Drone",fdIn_str,fdFromBB_str,fdtoBB_str,fdRepul_str, (char *)NULL); // launch another process if condition met
        

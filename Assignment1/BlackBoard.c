@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
     char *path_bb = argv[5];
     int fdIn_BB = open(path_bb, O_RDONLY | O_NONBLOCK);
     if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }
-    int fdRepul =atoi(argv[7]);
+    int fdRepul =atoi(argv[6]);
 
     struct timeval tv;
     int retval;
@@ -257,98 +257,98 @@ int main(int argc, char *argv[]) {
         }
         
 
-            // Clear window for new frame
-            werase(win);
-            box(win, 0, 0);
+        // Clear window for new frame
+        werase(win);
+        box(win, 0, 0);
 
-            FD_ZERO(&readfds);
-            FD_SET(fdToBB, &readfds);
-            FD_SET(fdOb, &readfds);
-            FD_SET(fdTa, &readfds);
-            FD_SET(fdIn_BB, &readfds);
+        FD_ZERO(&readfds);
+        FD_SET(fdToBB, &readfds);
+        FD_SET(fdOb, &readfds);
+        FD_SET(fdTa, &readfds);
+        FD_SET(fdIn_BB, &readfds);
 
-            // small timeout so loop stays responsive
-            tv.tv_sec = 0;
-            tv.tv_usec = 100000;
+        // small timeout so loop stays responsive
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
 
-            retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+        retval = select(maxfd + 1, &readfds, NULL, NULL, &tv);
 
-            if (retval == -1) break;
-            else if (retval > 0) {
+        if (retval == -1) break;
+        else if (retval > 0) {
+            
+            //--- SIMPLIFIED READ INPUT ---
+            if (FD_ISSET(fdIn_BB, &readfds)) {
+                // 1. Clear buffer to prevent junk
+                memset(strIn, 0, sizeof(strIn)); 
                 
-                //--- SIMPLIFIED READ INPUT ---
-                if (FD_ISSET(fdIn_BB, &readfds)) {
-                    // 1. Clear buffer to prevent junk
-                    memset(strIn, 0, sizeof(strIn)); 
-                    
-                    // 2. Read whatever is in the pipe
-                    ssize_t bytes = read(fdIn_BB, strIn, sizeof(strIn)-1);
-                    
-                    if (bytes > 0) {
-                        // 3. The Magic Fix: sscanf automatically skips '\n' and ' '
-                        // It grabs the first actual letter into sIn
-                        sscanf(strIn, "%1s", sIn); 
+                // 2. Read whatever is in the pipe
+                ssize_t bytes = read(fdIn_BB, strIn, sizeof(strIn)-1);
+                
+                if (bytes > 0) {
+                    // 3. The Magic Fix: sscanf automatically skips '\n' and ' '
+                    // It grabs the first actual letter into sIn
+                    sscanf(strIn, "%1s", sIn); 
+                } 
+                else { running = false; } // Pipe closed
+            }           
+
+            //....Drone Dynamics...The posistions x, y current
+            if (FD_ISSET(fdToBB, &readfds)) {
+                ssize_t bytes = read(fdToBB, sToBB, sizeof(sToBB)-1);
+                if (bytes > 0) {
+                    if (skip_drone_update) {
+                    // We read the data to clear the pipe, 
+                    // BUT we do NOT update x_curr/y_curr.
+                    // We just throw this "old" packet away.
+                    skip_drone_update = false; // Reset flag for next time
                     } 
-                    else { running = false; } // Pipe closed
-                }           
-
-                //....Drone Dynamics...The posistions x, y current
-                if (FD_ISSET(fdToBB, &readfds)) {
-                    ssize_t bytes = read(fdToBB, sToBB, sizeof(sToBB)-1);
-                    if (bytes > 0) {
-                        if (skip_drone_update) {
-                        // We read the data to clear the pipe, 
-                        // BUT we do NOT update x_curr/y_curr.
-                        // We just throw this "old" packet away.
-                        skip_drone_update = false; // Reset flag for next time
-                        } 
-                        else {
-                            sToBB[bytes] = '\0';
-                            sscanf(sToBB, "%f,%f", &x_curr, &y_curr);
-                        }   
-                    }
-                    else { running = false; } // Pipe closed
+                    else {
+                        sToBB[bytes] = '\0';
+                        sscanf(sToBB, "%f,%f", &x_curr, &y_curr);
+                    }   
                 }
-                
+                else { running = false; } // Pipe closed
+            }
+            
 
-                // Receiving coordinates from obstacle pipe
-                if (FD_ISSET(fdOb, &readfds)) {
-                    ssize_t bytes = read(fdOb, strOb, sizeof(strOb)-1);
-                    if (bytes > 0) {
-                        strOb[bytes] = '\0';
-                        int new_x, new_y;
-                        sscanf(strOb, format_stringOb, &new_x, &new_y);
-                        // Clamp to window dimensions to prevent vanishing
-                        if (new_x >= ww - 1) new_x = ww - 2;
-                        if (new_y >= wh - 1) new_y = wh - 2;
-                        
-                        // Store in array
-                        obstacles[obs_head].x = new_x;
-                        obstacles[obs_head].y = new_y;
-                        obs_head = (obs_head + 1) % MAX_ITEMS;
-                        if (obs_count < MAX_ITEMS) obs_count++;
-                    }
+            // Receiving coordinates from obstacle pipe
+            if (FD_ISSET(fdOb, &readfds)) {
+                ssize_t bytes = read(fdOb, strOb, sizeof(strOb)-1);
+                if (bytes > 0) {
+                    strOb[bytes] = '\0';
+                    int new_x, new_y;
+                    sscanf(strOb, format_stringOb, &new_x, &new_y);
+                    // Clamp to window dimensions to prevent vanishing
+                    if (new_x >= ww - 1) new_x = ww - 2;
+                    if (new_y >= wh - 1) new_y = wh - 2;
+                    
+                    // Store in array
+                    obstacles[obs_head].x = new_x;
+                    obstacles[obs_head].y = new_y;
+                    obs_head = (obs_head + 1) % MAX_ITEMS;
+                    if (obs_count < MAX_ITEMS) obs_count++;
                 }
+            }
 
-                // Reading coordinates from target pipe
-                if (FD_ISSET(fdTa, &readfds)) {
-                    ssize_t bytes = read(fdTa, strTa, sizeof(strTa)-1);
-                    if (bytes > 0) {
-                        strTa[bytes] = '\0';
-                        int new_x, new_y;
-                        sscanf(strTa, format_stringTa, &new_x, &new_y);
-                        // Clamp to window dimensions to prevent vanishing
-                        if (new_x >= ww - 1) new_x = ww - 2;
-                        if (new_y >= wh - 1) new_y = wh - 2;
+            // Reading coordinates from target pipe
+            if (FD_ISSET(fdTa, &readfds)) {
+                ssize_t bytes = read(fdTa, strTa, sizeof(strTa)-1);
+                if (bytes > 0) {
+                    strTa[bytes] = '\0';
+                    int new_x, new_y;
+                    sscanf(strTa, format_stringTa, &new_x, &new_y);
+                    // Clamp to window dimensions to prevent vanishing
+                    if (new_x >= ww - 1) new_x = ww - 2;
+                    if (new_y >= wh - 1) new_y = wh - 2;
 
-                        // Store in array
-                        targets[tar_head].x = new_x;
-                        targets[tar_head].y = new_y;
-                        tar_head = (tar_head + 1) % MAX_ITEMS;
-                        if (tar_count < MAX_ITEMS) tar_count++;
-                    }
+                    // Store in array
+                    targets[tar_head].x = new_x;
+                    targets[tar_head].y = new_y;
+                    tar_head = (tar_head + 1) % MAX_ITEMS;
+                    if (tar_count < MAX_ITEMS) tar_count++;
                 }
-            }                
+            }
+        }                
 
         
 
@@ -356,7 +356,7 @@ int main(int argc, char *argv[]) {
             running = false;
         }
 
-         if (sIn[0] == 'a'){
+        if (sIn[0] == 'a'){
             mvwprintw(win, y_curr, x_curr, " " );
             x_curr=ww/2;
             y_curr=wh/2;
@@ -368,97 +368,99 @@ int main(int argc, char *argv[]) {
             wrefresh(win);
         }
 
-            if (sIn[0] == 'p') {
-                mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
-                wrefresh(win);
-                //sIn[0]='\0';
+        if (sIn[0] == 'p') {
+            mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
+            wrefresh(win);
+            //sIn[0]='\0';
 
-                fd_set pause_fds;
-                struct timeval pause_tv;
-                int pause_ret;
-                int pause_ch = -1;
-                
+            fd_set pause_fds;
+            struct timeval pause_tv;
+            int pause_ret;
+            int pause_ch = -1;
+            
 
-                while (running) {
-                    // check keyboard
-                    /*pause_ch = getch();
-                    if (pause_ch == 'u') break;*/
+            while (running) {
+                // check keyboard
+                /*pause_ch = getch();
+                if (pause_ch == 'u') break;*/
 
-                    // set up select on fds (zero timeout so we poll periodically)
-                    FD_ZERO(&pause_fds);
-                    FD_SET(fdIn_BB, &pause_fds);
-                    int maxfd_pause = fdIn_BB;
-                    //FD_SET(fdOb, &pause_fds);
-                    //FD_SET(fdTa, &pause_fds);
-                    pause_tv.tv_sec = 0;
-                    pause_tv.tv_usec = 100 * 1000; // 100 ms
+                // set up select on fds (zero timeout so we poll periodically)
+                FD_ZERO(&pause_fds);
+                FD_SET(fdIn_BB, &pause_fds);
+                int maxfd_pause = fdIn_BB;
+                //FD_SET(fdOb, &pause_fds);
+                //FD_SET(fdTa, &pause_fds);
+                pause_tv.tv_sec = 0;
+                pause_tv.tv_usec = 100 * 1000; // 100 ms
 
-                    pause_ret = select(maxfd_pause + 1, &pause_fds, NULL, NULL, &pause_tv);
-                    if (pause_ret > 0) {
-                        // If input pipe has data, read and update sIn
-                        if (FD_ISSET(fdIn_BB, &pause_fds)) {
-                            ssize_t bytes = read(fdIn_BB, strIn, sizeof(strIn) - 1);
-                            if (bytes > 0) {
-                                strIn[bytes] = '\0';
-                                sscanf(strIn, "%s", sIn);
-                                if (sIn[0] == 'u') {
-                                    // redraw the pause message/frame so UI stays alive  
-                                    break;
-                                }
-                                if (sIn[0] == 'q'){
-                                    running=false;
-                                    break;
-                                }
-                                } else {
-                                    running = false; //pipe broken
-                                    break;
-                                }
-                        }
+                pause_ret = select(maxfd_pause + 1, &pause_fds, NULL, NULL, &pause_tv);
+                if (pause_ret > 0) {
+                    // If input pipe has data, read and update sIn
+                    if (FD_ISSET(fdIn_BB, &pause_fds)) {
+                        ssize_t bytes = read(fdIn_BB, strIn, sizeof(strIn) - 1);
+                        if (bytes > 0) {
+                            strIn[bytes] = '\0';
+                            sscanf(strIn, "%s", sIn);
+                            if (sIn[0] == 'u') {
+                                // redraw the pause message/frame so UI stays alive  
+                                break;
+                            }
+                            if (sIn[0] == 'q'){
+                                running=false;
+                                break;
+                            }
+                            } else {
+                                running = false; //pipe broken
+                                break;
+                            }
                     }
                 }
-                        sIn[0]=' ';
-                        werase(win);
-                        box(win, 0, 0);
-                        mvwprintw(win, 0, 0, "                       ");               
             }
 
-            // 3. WALL COLLISION (No Wrap-Around)
-            // If we hit a wall, we clamp the position and reset history 
-            // to kill the momentum (otherwise it sticks/vibrates).
+            sIn[0]=' ';
+            werase(win);
+            box(win, 0, 0);
+            mvwprintw(win, 0, 0, "                       ");    
+
+        }
+
+        // 3. WALL COLLISION (No Wrap-Around)
+        // If we hit a wall, we clamp the position and reset history 
+        // to kill the momentum (otherwise it sticks/vibrates).
+        
+        if (x_curr >= ww - 1) {
+            x_curr = ww - 1;
+            x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
+            /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            //sending new x,y values to drone process        
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+        } else if (x_curr <= 0) {
+            x_curr = 0;
+            //x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
+            /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            //sending new x,y values to drone process        
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+        }
+
+        if (y_curr >= wh - 1) {
+            y_curr = wh - 1;
+            //y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
+            /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            //sending new x,y values to drone process        
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
             
-            if (x_curr >= ww - 1) {
-                x_curr = ww - 1;
-                x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
-                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
-                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
-                //sending new x,y values to drone process        
-                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
-            } else if (x_curr <= 0) {
-                x_curr = 0;
-                //x_prev = x_curr; x_prev2 = x_curr; // Stop momentum
-                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
-                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
-                //sending new x,y values to drone process        
-                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
-            }
-
-            if (y_curr >= wh - 1) {
-                y_curr = wh - 1;
-                //y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
-                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
-                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
-                //sending new x,y values to drone process        
-                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
-                
-            } else if (y_curr <= 0) {
-                y_curr = 0;
-                //y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
-                /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
-                snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
-                //sending new x,y values to drone process        
-                write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
-                
-            }
+        } else if (y_curr <= 0) {
+            y_curr = 0;
+            //y_prev = y_curr; y_prev2 = y_curr; // Stop momentum
+            /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
+            snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
+            //sending new x,y values to drone process        
+            write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
+            
+        }
 
         // --- 4. DRAWING ---
         // Draw Obstacles
@@ -492,14 +494,13 @@ int main(int argc, char *argv[]) {
                     }else if(y_curr < obstacles[i].y){
                         ch_repel = 'e';
                     }
-                    }
                 }
+                //change where you want to put it
+                snprintf(sRepul, sizeof(sRepul), "%c", ch_repel);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);
             }
-            //change where you want to put it
-            snprintf(sRepul, sizeof(sRepul), "%s",ch_repel);
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
         }
-
+            
         // Draw Targets
         for(int i=0; i<tar_count; i++) {
              if (targets[i].x > 0 && targets[i].y > 0) 
@@ -508,14 +509,9 @@ int main(int argc, char *argv[]) {
 
         // Draw the drone 
         mvwprintw(win, (int)y_curr, (int)x_curr, "+");
-        
-        // --- 6. REFRESH SCREEN ---
         wrefresh(win);
-
-        // --- 7. FRAME DELAY ---
         usleep(1000); 
         
-
     }
     // Cleanup
     delwin(win);
