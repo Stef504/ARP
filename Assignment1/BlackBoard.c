@@ -357,9 +357,8 @@ int main(int argc, char *argv[]) {
 
          if (sIn[0] == 'a'){
             mvwprintw(win, y_curr, x_curr, " " );
-            mvwprintw(win, wh/2,ww/2, "+");
-            x_curr=wh/2;
-            y_curr=ww/2;
+            x_curr=ww/2;
+            y_curr=wh/2;
 
             /* pack all positions into sDrW as: x_curr,y_curr,x_prev,y_prev,x_prev2,y_prev2 */
             snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
@@ -371,27 +370,29 @@ int main(int argc, char *argv[]) {
             if (sIn[0] == 'p') {
                 mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
                 wrefresh(win);
+                //sIn[0]='\0';
 
                 fd_set pause_fds;
                 struct timeval pause_tv;
                 int pause_ret;
                 int pause_ch = -1;
+                
 
                 while (running) {
                     // check keyboard
-                    pause_ch = getch();
-                    sIn[0]='\0';
-                    if (pause_ch == 'u') break;
+                    /*pause_ch = getch();
+                    if (pause_ch == 'u') break;*/
 
                     // set up select on fds (zero timeout so we poll periodically)
                     FD_ZERO(&pause_fds);
                     FD_SET(fdIn_BB, &pause_fds);
-                    FD_SET(fdOb, &pause_fds);
-                    FD_SET(fdTa, &pause_fds);
+                    int maxfd_pause = fdIn_BB;
+                    //FD_SET(fdOb, &pause_fds);
+                    //FD_SET(fdTa, &pause_fds);
                     pause_tv.tv_sec = 0;
                     pause_tv.tv_usec = 100 * 1000; // 100 ms
 
-                    pause_ret = select(maxfd + 1, &pause_fds, NULL, NULL, &pause_tv);
+                    pause_ret = select(maxfd_pause + 1, &pause_fds, NULL, NULL, &pause_tv);
                     if (pause_ret > 0) {
                         // If input pipe has data, read and update sIn
                         if (FD_ISSET(fdIn_BB, &pause_fds)) {
@@ -399,68 +400,67 @@ int main(int argc, char *argv[]) {
                             if (bytes > 0) {
                                 strIn[bytes] = '\0';
                                 sscanf(strIn, "%s", sIn);
-                                if (sIn[0] == 'u') break;
-                            } else {
-                                running = false;
-                                break;
+                                if (sIn[0] == 'u') {
+                                    // redraw the pause message/frame so UI stays alive  
+                                    break;
+                                }
+                                if (sIn[0] == 'q'){
+                                    running=false;
+                                    break;
+                                }
+                                } else {
+                                    running = false; //pipe broken
+                                    break;
+                                }
+                        }
+                    }
+                }
+                        sIn[0]=' ';
+                        werase(win);
+                        box(win, 0, 0);
+                        mvwprintw(win, 0, 0, "                       ");
+            
+                    
+                        // Still consume obstacle/target updates so they remain visible
+                        /*if (FD_ISSET(fdOb, &pause_fds)) {
+                            ssize_t bytes = read(fdOb, strOb, sizeof(strOb) - 1);
+                            if (bytes > 0) {
+                                strOb[bytes] = '\0';
+                                int new_x, new_y;
+                                sscanf(strOb, "%d,%d", &new_x, &new_y);
+                                if (new_x >= ww - 1) new_x = ww - 2;
+                                if (new_y >= wh - 1) new_y = wh - 2;
+                                obstacles[obs_head].x = new_x;
+                                obstacles[obs_head].y = new_y;
+                                obs_head = (obs_head + 1) % MAX_ITEMS;
+                                if (obs_count < MAX_ITEMS) obs_count++;
                             }
                         }
-                        // Still consume obstacle/target updates so they remain visible
-                    if (FD_ISSET(fdOb, &pause_fds)) {
-                        ssize_t bytes = read(fdOb, strOb, sizeof(strOb) - 1);
-                        if (bytes > 0) {
-                            strOb[bytes] = '\0';
-                            int new_x, new_y;
-                            sscanf(strOb, "%d,%d", &new_x, &new_y);
-                            if (new_x >= ww - 1) new_x = ww - 2;
-                            if (new_y >= wh - 1) new_y = wh - 2;
-                            obstacles[obs_head].x = new_x;
-                            obstacles[obs_head].y = new_y;
-                            obs_head = (obs_head + 1) % MAX_ITEMS;
-                            if (obs_count < MAX_ITEMS) obs_count++;
-                        }
-                    }
-                    if (FD_ISSET(fdTa, &pause_fds)) {
-                        ssize_t bytes = read(fdTa, strTa, sizeof(strTa) - 1);
-                        if (bytes > 0) {
-                            strTa[bytes] = '\0';
-                            int new_x, new_y;
-                            sscanf(strTa, "%d,%d", &new_x, &new_y);
-                            if (new_x >= ww - 1) new_x = ww - 2;
-                            if (new_y >= wh - 1) new_y = wh - 2;
-                            targets[tar_head].x = new_x;
-                            targets[tar_head].y = new_y;
-                            tar_head = (tar_head + 1) % MAX_ITEMS;
-                            if (tar_count < MAX_ITEMS) tar_count++;
-                        }
-                    }
-                }
+                        if (FD_ISSET(fdTa, &pause_fds)) {
+                            ssize_t bytes = read(fdTa, strTa, sizeof(strTa) - 1);
+                            if (bytes > 0) {
+                                strTa[bytes] = '\0';
+                                int new_x, new_y;
+                                sscanf(strTa, "%d,%d", &new_x, &new_y);
+                                if (new_x >= ww - 1) new_x = ww - 2;
+                                if (new_y >= wh - 1) new_y = wh - 2;
+                                targets[tar_head].x = new_x;
+                                targets[tar_head].y = new_y;
+                                tar_head = (tar_head + 1) % MAX_ITEMS;
+                                if (tar_count < MAX_ITEMS) tar_count++;
+                            }
+                        }*/
+                    
 
-                // redraw the pause message/frame so UI stays alive
-                werase(win);
-                box(win, 0, 0);
-                mvwprintw(win, 0, 0, "Game Paused, Press 'u' to Resume");
-            
-
-                for(int i=0; i<obs_count; i++) {
-                     if (obstacles[i].x > 0 && obstacles[i].y > 0) 
-                        mvwprintw(win, obstacles[i].y, obstacles[i].x, "O");
-                }
-                for(int i=0; i<tar_count; i++) {
-                     if (targets[i].x > 0 && targets[i].y > 0) 
-                        mvwprintw(win, targets[i].y, targets[i].x, "T");
-                }
-                mvwprintw(win, (int)y_curr, (int)x_curr, "+");
-                wrefresh(win);
+                
             }
-        }
 
-            if (sIn[0] == 'u') {
+            /*if (sIn[0] == 'u') {
                 // Clear pause message after resume
                 mvwprintw(win, 0, 0, "                             ");
                 mvwprintw(win, (int)y_curr, (int)x_curr, "+");
                 wrefresh(win);
-            }
+            }*/
 
             // 3. WALL COLLISION (No Wrap-Around)
             // If we hit a wall, we clamp the position and reset history 

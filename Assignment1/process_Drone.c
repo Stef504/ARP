@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
                 }
             }
             // Case D: Reset Logic
-            else if (input_key == 'a') {
+            /*else if (input_key == 'a') {
                 // Read Reset Position from Blackboard
                 ssize_t b = 0;
                 while (b <= 0) b = read(fdFromBB, strFromBB, sizeof(strFromBB)-1);
@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
                 x_prev = x_update; x_prev2 = x_update;
                 y_prev = y_update; y_prev2 = y_update;
                 boost_level = 0; active_key = ' ';
-            }
+            }*/
             // Case E: Same Direction -> Increase Speed
             else if (input_key == active_key) {
                 if (boost_level < 2) boost_level++; 
