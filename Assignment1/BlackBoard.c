@@ -172,10 +172,12 @@ int main(int argc, char *argv[]) {
     struct timeval tv;
     int retval;
     char strToBB[135],strFromBB[135], strOb[100], strTa[100], strIn[100]; 
-    char sToBB[135],sFromBB[135], sOb[135], sTa[135],sIn[10],sRepul[10];
+    char sToBB[135],sFromBB[135], sOb[135], sTa[135],sIn[10],sRepul[40];
     char format_stringIn[100] = "%s";
     char format_stringOb[100] = "%d,%d";
-    char format_stringTa[100] = "%d,%d";    
+    char format_stringTa[100] = "%d,%d";  
+    
+    int dx,dy,distance;
 
     fd_set readfds;
     int maxfd = fdToBB;
@@ -336,13 +338,14 @@ int main(int argc, char *argv[]) {
             }
         }                
 
+        char input_key= sIn[0];
         // Quit the game
-        if (sIn[0]=='q'){
+        if (input_key=='q'){
             running = false;
         }
 
         // Reset button - recentre drone
-        if (sIn[0] == 'a'){
+        if (input_key == 'a'){
             mvwprintw(win, y_curr, x_curr, " " );
             x_curr=ww/2;
             y_curr=wh/2;
@@ -353,7 +356,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Pause the game, wait for 'u' to unpause
-        if (sIn[0] == 'p') {
+        if (input_key == 'p') {
             mvwprintw(win, 0, 0, "Game Paused, Press 'u' (via pipe) to Resume");
             wrefresh(win);
 
@@ -393,14 +396,14 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            sIn[0]=' ';
+            input_key=' ';
             werase(win);
             box(win, 0, 0);
             mvwprintw(win, 0, 0, "                       ");    
 
         }
         
-        if (x_curr >= ww - 1) {
+        /*if (x_curr >= ww - 1) {
             x_curr = ww - 1;
             x_prev = x_curr; x_prev2 = x_curr;
             snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);        
@@ -421,16 +424,131 @@ int main(int argc, char *argv[]) {
             snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);      
             write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
             
-        }
+        }*/
 
-        // Draw Obstacles
+        // Draw Obstacles while checking if we having an closeness of a drone
         for(int i=0; i<obs_count; i++) {
             if (obstacles[i].x > 0 && obstacles[i].y > 0){ 
                 mvwprintw(win, obstacles[i].y, obstacles[i].x, "O");
             }
+            
+            dx =  x_curr - obstacles[i].x;
+            dy =  y_curr - obstacles[i].y;
+            distance = sqrt(pow(dx, 2) + pow(dy, 2));
+            
 
-            int distance = sqrt(pow(obstacles[i].x - x_curr, 2) + pow(obstacles[i].y - y_curr, 2));
-            if(distance <= rph_intial){
+            if(distance < rph_intial && distance > 0.1){
+                if(x_curr < obstacles[i].x ){
+                    if(y_curr == obstacles[i].y){
+                        dx=dx*1;
+                    } else if(y_curr < obstacles[i].y){
+                        dy=dy*1;
+                        dx=dx*1;
+                    } else {
+                        dy=dy*1;
+                        dx=dx*1;
+                    }
+                } else if(x_curr > obstacles[i].x){
+                    if(y_curr == obstacles[i].y){
+                        dx=dx*-1;
+                    } else if(y_curr < obstacles[i].y){
+                        dy=dy*-1;
+                        dx=dx*-1;
+                    } else {
+                        dy=dy*-1;
+                        dx=dx*-1;
+                    }
+                } else {
+                    if(y_curr > obstacles[i].y){
+                        dy=dy*1;
+                    }else if(y_curr < obstacles[i].y){
+                        dy=dy*-1;
+                    }
+                }//change where you want to put it
+                snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);
+            } else{
+                input_key='a';
+            }
+            input_key=' ';
+        }            
+        
+
+        // Check for boundary repulsion
+        if (x_curr < rph_intial) {
+            
+            distance= (int)x_curr;
+            if (distance < 1){
+                distance=1;
+            }
+            dx = -distance;
+            dy =0;
+            
+            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        } else if (x_curr > (ww - rph_intial)) {
+            distance = ww - (int)x_curr;
+            if (distance < 1){
+                distance=1;
+            }
+            int dx = distance;
+            int dy = 0;
+            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        }
+
+        if (y_curr < rph_intial) {
+            distance= (int)y_curr;
+            if (distance < 1){
+                distance=1;
+            }
+            dy = -distance;
+            dx =0;
+            
+            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        } else if (y_curr > (wh - rph_intial)) {
+            distance = wh - (int)y_curr;
+            if (distance < 1){
+                distance=1;
+            }
+            dy = distance;
+            dx = 0;
+            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
+            write(fdRepul, sRepul, strlen(sRepul) + 1);
+        }
+            
+        /*if(distance < rph_intial){
+                int ch_repel;
+                if(x_curr < obstacles[i].x ){
+                    if(y_curr == obstacles[i].y){
+                        dx=dx*1;
+                    } else if(y_curr < obstacles[i].y){
+                        dy=dy*1;
+                        dx=dx*1;
+                    } else {
+                        dy=dy*1;
+                        dx=dx*1;
+                    }
+                } else if(x_curr > obstacles[i].x){
+                    if(y_curr == obstacles[i].y){
+                        dx=dx*-1;
+                    } else if(y_curr < obstacles[i].y){
+                        dy=dy*-1;
+                        dx=dx*-1;
+                    } else {
+                        dy=dy*-1;
+                        dx=dx*-1;
+                    }
+                } else {
+                    if(y_curr > obstacles[i].y){
+                        dy=dy*1
+                    }else if(y_curr < obstacles[i].y){
+                        dy=dy*-1
+                    }
+                }*/
+                
+                /*if(distance < rph_intial){
                 int ch_repel;
                 if(x_curr < obstacles[i].x ){
                     if(y_curr == obstacles[i].y){
@@ -454,30 +572,10 @@ int main(int argc, char *argv[]) {
                     }else if(y_curr < obstacles[i].y){
                         ch_repel = 'e';
                     }
-                }
+                }*/
                 //change where you want to put it
-                snprintf(sRepul, sizeof(sRepul), "%c,%d", ch_repel,distance);
-                write(fdRepul, sRepul, strlen(sRepul) + 1);
-            }
-        }
-
-        // Check for boundary repulsion
-        if (x_curr <= rph_intial) {
-            snprintf(sRepul, sizeof(sRepul), "f");
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        } else if (x_curr >= ww - rph_intial) {
-            snprintf(sRepul, sizeof(sRepul), "s");
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        }
-
-        if (y_curr <= rph_intial) {
-            snprintf(sRepul, sizeof(sRepul), "c");
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        } else if (y_curr >= wh - rph_intial) {
-            snprintf(sRepul, sizeof(sRepul), "e");
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        }
-            
+                /*snprintf(sRepul, sizeof(sRepul), "%c,%d,%d,%d", ch_repel,distance, dx, dy);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);*/
         // Draw Targets
         for(int i=0; i<tar_count; i++) {
              if (targets[i].x > 0 && targets[i].y > 0) 

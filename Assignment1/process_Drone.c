@@ -17,7 +17,7 @@
 
 int window_width;
 int window_height;
-int rph_intial;
+float rph_intial;
 double eta_intial;
 int force_intial;
 int mass;        
@@ -120,12 +120,12 @@ int main(int argc, char *argv[])
     
     struct timeval tv={0,0};
     int retval;
-    char strIn[135],sOut[135],strFromBB[100], strRepul[20]; 
+    char strIn[135],sOut[135],strFromBB[100], strRepul[50]; 
     char sIn[10],sRepul[10];
 
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
-    int distance;
+    int distance=0,dx=0,dy=0;
 
     float x_curr = 0, y_curr = 0;
     float x_prev = 0, y_prev = 0;
@@ -159,6 +159,7 @@ int main(int argc, char *argv[])
 
     while(running){
  
+        repul=false;
         FD_ZERO(&readfds);
         FD_SET(fdIn, &readfds);
         FD_SET(fdFromBB, &readfds);
@@ -173,6 +174,8 @@ int main(int argc, char *argv[])
             break;
         } 
         else if (retval > 0) {
+
+            // Read from keyboard
             if (FD_ISSET(fdIn, &readfds)) {
                 ssize_t bytes = read(fdIn, strIn, sizeof(strIn)-1);
                 if (bytes > 0) {
@@ -199,10 +202,8 @@ int main(int argc, char *argv[])
                  ssize_t bytes = read(fdRepul, strRepul, sizeof(strRepul)-1);
                 if (bytes > 0) {
                     strRepul[bytes] = '\0';
-                    sscanf(strFromBB, "%c,%d",sRepul,&distance);
+                    sscanf(strRepul, "%d,%d,%d",&distance,&dx,&dy);
                     repul=true;
-                    //strncpy(sIn, sRepul, sizeof(sIn) - 1);
-                    //sIn[sizeof(sIn) - 1] = '\0';
                 } else { 
                     if (bytes == 0) { // Pipe closed
                         running = false;
@@ -212,7 +213,7 @@ int main(int argc, char *argv[])
         }                
         
         char input_key = sIn[0];
-        char repul_key =sRepul[0];
+        //char repul_key =sRepul[0];
 
         if (input_key != ' ' && input_key != 0) {
 
@@ -249,8 +250,6 @@ int main(int argc, char *argv[])
                 }
             }else if (repul){
                 boost_level=0;
-                active_key = repul_key;
-                
             }
             // Case G: Intializes the first key pressed and if New Direction (Orthogonal) -> Switch immediately
             else {
@@ -263,13 +262,14 @@ int main(int argc, char *argv[])
         // Clear physical input so keys don't "stick" in the buffer,
         // BUT active_key persists, so the engine keeps running.
         sIn[0] = ' '; 
-        sRepul[0]=' ';
+        //sRepul[0]=' ';
 
         float multiplier = 1.0 + (boost_level * 0.2);
         float cur_force = force_intial * multiplier;
         float cur_diag = diag_force * multiplier;
 
         float Fx = 0, Fy = 0;
+        float total_fx=0, total_fy=0;
        
 
          switch (active_key) {
@@ -283,19 +283,19 @@ int main(int argc, char *argv[])
             case 'v': Fx =  cur_diag; Fy =  cur_diag; break;
         }
 
-        float total_fx= Fx;
-        float total_fy= Fy;
+        total_fx= Fx;
+        total_fy= Fy;
 
         if (repul){
+            
+            float term_rph = (1.0 / rph_intial);
+                        
+            float forces_repul_x = eta_intial * 1/pow((float)distance,2) * (1/(float)distance - term_rph) * (float)dx/(float)distance; 
+            float forces_repul_y = eta_intial * 1/pow((float)distance,2) * (1/(float)distance - term_rph) * (float)dy/(float)distance; 
 
-            float forces_repul_x= eta_intial*(1/pow(x_curr,2))*(1/pow(x_curr,2)-1/rph_intial)*distance; 
-            float forces_repul_y= eta_intial*(1/pow(y_curr,2))*(1/pow(y_curr,2)-1/rph_intial)*distance; 
-
-            float total_fx= Fx - forces_repul_x;
-            float total_fy= Fy - forces_repul_y;
-
-            repul=false;
-            return 0;
+            // Subtract repulsion (Push away)
+            total_fx -= forces_repul_x;
+            total_fy -= forces_repul_y;
         }
     
         float denom = mass + (k_intial * T);
