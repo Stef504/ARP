@@ -312,6 +312,7 @@ int main(int argc, char *argv[]) {
                     obs_head = (obs_head + 1) % MAX_ITEMS;
                     if (obs_count < MAX_ITEMS) obs_count++;
                 }
+                else { running = false; }
             }
 
             // Reading coordinates from target pipe
@@ -331,6 +332,7 @@ int main(int argc, char *argv[]) {
                     tar_head = (tar_head + 1) % MAX_ITEMS;
                     if (tar_count < MAX_ITEMS) tar_count++;
                 }
+                else { running = false; }
             }
         }                
 
@@ -454,7 +456,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 //change where you want to put it
-                snprintf(sRepul, sizeof(sRepul), "%c", ch_repel);
+                snprintf(sRepul, sizeof(sRepul), "%c,%d", ch_repel,distance);
                 write(fdRepul, sRepul, strlen(sRepul) + 1);
             }
         }

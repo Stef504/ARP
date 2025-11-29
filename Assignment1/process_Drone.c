@@ -25,6 +25,7 @@ int k_intial;
 int working_area ;
 int t_intial ;  
 bool running = true;
+bool repul =false;
 
 // Function to identify opposite keys
 char get_opposite_key(char key) {
@@ -119,11 +120,12 @@ int main(int argc, char *argv[])
     
     struct timeval tv={0,0};
     int retval;
-    char strIn[135],sOut[135],strFromBB[100]; 
+    char strIn[135],sOut[135],strFromBB[100], strRepul[20]; 
     char sIn[10],sRepul[10];
 
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
+    int distance;
 
     float x_curr = 0, y_curr = 0;
     float x_prev = 0, y_prev = 0;
@@ -153,7 +155,7 @@ int main(int argc, char *argv[])
     float T= t_intial / 1000.0; // Convert ms to seconds
 
     char active_key = ' '; // The key currently driving the physics
-    int boost_level = 0;   // 0 = 0%, 1 = 10%, 2 = 20% (Max)
+    int boost_level = 0;   // 0 = 0%, 1 = 20%, 2 = 40% (Max)
 
     while(running){
  
@@ -194,11 +196,13 @@ int main(int argc, char *argv[])
 
             // Read repulsion keys
             if (FD_ISSET(fdRepul,&readfds)){
-                 ssize_t bytes = read(fdRepul, sRepul, sizeof(sRepul)-1);
+                 ssize_t bytes = read(fdRepul, strRepul, sizeof(strRepul)-1);
                 if (bytes > 0) {
-                    sRepul[bytes] = '\0';
-                    strncpy(sIn, sRepul, sizeof(sIn) - 1);
-                    sIn[sizeof(sIn) - 1] = '\0';
+                    strRepul[bytes] = '\0';
+                    sscanf(strFromBB, "%c,%d",sRepul,&distance);
+                    repul=true;
+                    //strncpy(sIn, sRepul, sizeof(sIn) - 1);
+                    //sIn[sizeof(sIn) - 1] = '\0';
                 } else { 
                     if (bytes == 0) { // Pipe closed
                         running = false;
@@ -208,6 +212,7 @@ int main(int argc, char *argv[])
         }                
         
         char input_key = sIn[0];
+        char repul_key =sRepul[0];
 
         if (input_key != ' ' && input_key != 0) {
 
@@ -242,23 +247,30 @@ int main(int argc, char *argv[])
                     boost_level = 0;
                     active_key = input_key;
                 }
+            }else if (repul){
+                boost_level=0;
+                active_key = repul_key;
+                
             }
-            // Case G: New Direction (Orthogonal) -> Switch immediately
+            // Case G: Intializes the first key pressed and if New Direction (Orthogonal) -> Switch immediately
             else {
                 boost_level = 0;
                 active_key = input_key;
             }
         }
         
+
         // Clear physical input so keys don't "stick" in the buffer,
         // BUT active_key persists, so the engine keeps running.
         sIn[0] = ' '; 
+        sRepul[0]=' ';
 
-        float multiplier = 1.0 + (boost_level * 0.5);
+        float multiplier = 1.0 + (boost_level * 0.2);
         float cur_force = force_intial * multiplier;
         float cur_diag = diag_force * multiplier;
 
         float Fx = 0, Fy = 0;
+       
 
          switch (active_key) {
             case 'e': Fy = -cur_force; break; // Up
@@ -271,31 +283,46 @@ int main(int argc, char *argv[])
             case 'v': Fx =  cur_diag; Fy =  cur_diag; break;
         }
 
-    float denom = mass + (k_intial * T);
-    float history_factor = (2 * mass) + (k_intial * T);
+        float total_fx= Fx;
+        float total_fy= Fy;
 
-    float num_x = (Fx * T * T) + (x_prev * history_factor) - (mass * x_prev2);
-    float x_new = num_x / denom;
+        if (repul){
 
-    float num_y = (Fy * T * T) + (y_prev * history_factor) - (mass * y_prev2);
-    float y_new = num_y / denom;
+            float forces_repul_x= eta_intial*(1/pow(x_curr,2))*(1/pow(x_curr,2)-1/rph_intial)*distance; 
+            float forces_repul_y= eta_intial*(1/pow(y_curr,2))*(1/pow(y_curr,2)-1/rph_intial)*distance; 
+
+            float total_fx= Fx - forces_repul_x;
+            float total_fy= Fy - forces_repul_y;
+
+            repul=false;
+            return 0;
+        }
     
-     // Update history
-    x_prev2 = x_prev; x_prev = x_new;
-    y_prev2 = y_prev; y_prev = y_new;
-    x_curr = x_new;
-    y_curr = y_new;
+        float denom = mass + (k_intial * T);
+        float history_factor = (2 * mass) + (k_intial * T);
+
+        float num_x = (total_fx * T * T) + (x_prev * history_factor) - (mass * x_prev2);
+        float x_new = num_x / denom;
+
+        float num_y = (total_fy * T * T) + (y_prev * history_factor) - (mass * y_prev2);
+        float y_new = num_y / denom;
+        
+        // Update history
+        x_prev2 = x_prev; x_prev = x_new;
+        y_prev2 = y_prev; y_prev = y_new;
+        x_curr = x_new;
+        y_curr = y_new;
+        
+        // Sends the current position back to bb
+        snprintf(sOut, sizeof(sOut), "%d,%d", (int)(x_curr), (int)(y_curr));
+        ssize_t w = write(fdToBB, sOut, strlen(sOut) + 1);
+        if (w > 0) {
+            dprintf(STDERR_FILENO, "DRONE: wrote %zd bytes to fd %d -> '%s'\n", w, fdToBB, sOut);
+        } else {
+            dprintf(STDERR_FILENO, "DRONE: write failed fd=%d ret=%zd errno=%d (%s)\n",
+                    fdToBB, w, errno, strerror(errno));
+        }
     
-    // Sends the current position back to bb
-    snprintf(sOut, sizeof(sOut), "%d,%d", (int)(x_curr), (int)(y_curr));
-    ssize_t w = write(fdToBB, sOut, strlen(sOut) + 1);
-    if (w > 0) {
-        dprintf(STDERR_FILENO, "DRONE: wrote %zd bytes to fd %d -> '%s'\n", w, fdToBB, sOut);
-    } else {
-        dprintf(STDERR_FILENO, "DRONE: write failed fd=%d ret=%zd errno=%d (%s)\n",
-                fdToBB, w, errno, strerror(errno));
-    }
-     
     usleep(10000);
 }
 }
