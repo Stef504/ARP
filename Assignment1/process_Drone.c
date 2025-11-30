@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
     int x_coord_Ob, y_coord_Ob;
     int x_coord_Ta, y_coord_Ta;
     float distance=0;
-    int dx=0,dy=0;
+    float dx=0,dy=0;
 
     float x_curr = 0, y_curr = 0;
     float x_prev = 0, y_prev = 0;
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 
     while(running){
  
-        repul=false;
+        
         FD_ZERO(&readfds);
         FD_SET(fdIn, &readfds);
         FD_SET(fdFromBB, &readfds);
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
                  ssize_t bytes = read(fdRepul, strRepul, sizeof(strRepul)-1);
                 if (bytes > 0) {
                     strRepul[bytes] = '\0';
-                    sscanf(strRepul, "%f,%d,%d",&distance,&dx,&dy);
+                    sscanf(strRepul, "%f,%f,%f",&distance,&dx,&dy);
                     repul=true;
                 } else { 
                     if (bytes == 0) { // Pipe closed
@@ -249,8 +249,6 @@ int main(int argc, char *argv[])
                     boost_level = 0;
                     active_key = input_key;
                 }
-            }else if (repul){
-                boost_level=0;
             }
             // Case G: Intializes the first key pressed and if New Direction (Orthogonal) -> Switch immediately
             else {
@@ -263,7 +261,12 @@ int main(int argc, char *argv[])
         // Clear physical input so keys don't "stick" in the buffer,
         // BUT active_key persists, so the engine keeps running.
         sIn[0] = ' '; 
-        //sRepul[0]=' ';
+        
+
+        if (repul){
+            boost_level=0;
+            active_key = ' ';  // Stop the engine
+        }
 
         float multiplier = 1.0 + (boost_level * 0.2);
         float cur_force = force_intial * multiplier;
@@ -290,25 +293,25 @@ int main(int argc, char *argv[])
         if (repul){
 
             float dist_f = distance;
-            // **CRITICAL: Enforce minimum distance**
-            if (dist_f < 1.0) {
-                dist_f = 1.0;
-                dprintf(STDERR_FILENO, "DRONE: Distance clamped to minimum\n");
-            }
+
+            //this is the bridge between physics and pixels 
+            float scale_factor= 500;
+
             float term_rph = (1.0 / rph_intial);
-            float norm_dx = (float)dx/dist_f;
-            float norm_dy = (float)dy/dist_f;
+            float norm_dx = dx/dist_f;
+            float norm_dy = dy/dist_f;
                         
-            float repulsion_force= eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
+            float repulsion_force= scale_factor*eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
             float repul_x = repulsion_force * norm_dx;
             float repul_y = repulsion_force * norm_dy;
 
-            // Subtract repulsion (Push away)
+            // Add repulsion (Push away), it has its own sign to be repul
             total_fx += repul_x;
             total_fy += repul_y;
 
             dprintf(STDERR_FILENO, "DRONE: Repulsion - dist=%.2f, Fmag=%.4f, Fx=%.4f, Fy=%.4f\n",
             dist_f, repulsion_force, repul_x, repul_y);
+            repul=false;
         }
     
         float denom = mass + (k_intial * T);
@@ -335,13 +338,8 @@ int main(int argc, char *argv[])
             dprintf(STDERR_FILENO, "DRONE: write failed fd=%d ret=%zd errno=%d (%s)\n",
                     fdToBB, w, errno, strerror(errno));
         }
-
-        // In drone, at the end of main loop:
-        dprintf(STDERR_FILENO, "DRONE: pos=(%.2f,%.2f) vel_x=%.2f vel_y=%.2f F=(%.2f,%.2f) repul=%d\n",
-        x_curr, y_curr, 
-        (x_prev - x_prev2), (y_prev - y_prev2),  // Velocity estimate
-        total_fx, total_fy, repul);
     
+
     usleep(10000);
 }
 }
