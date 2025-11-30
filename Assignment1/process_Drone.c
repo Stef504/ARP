@@ -289,25 +289,32 @@ int main(int argc, char *argv[])
 
         total_fx= Fx;
         total_fy= Fy;
+        float MAX_REPULSION = 10.0;
 
         if (repul){
 
             float dist_f = distance;
 
             //this is the bridge between physics and pixels 
-            float scale_factor= 500;
+            float scale_factor= 200;
 
             float term_rph = (1.0 / rph_intial);
             float norm_dx = dx/dist_f;
             float norm_dy = dy/dist_f;
                         
             float repulsion_force= scale_factor*eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
+
+            //if (repulsion_force > MAX_REPULSION) repulsion_force = MAX_REPULSION;
             float repul_x = repulsion_force * norm_dx;
             float repul_y = repulsion_force * norm_dy;
 
             // Add repulsion (Push away), it has its own sign to be repul
             total_fx += repul_x;
             total_fy += repul_y;
+
+            // 6. Kill Velocity (Stop Bouncing)
+            x_prev = x_curr;
+            y_prev = y_curr;
 
             dprintf(STDERR_FILENO, "DRONE: Repulsion - dist=%.2f, Fmag=%.4f, Fx=%.4f, Fy=%.4f\n",
             dist_f, repulsion_force, repul_x, repul_y);
