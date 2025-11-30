@@ -296,7 +296,7 @@ int main(int argc, char *argv[])
             float dist_f = distance;
 
             //this is the bridge between physics and pixels 
-            float scale_factor= 400;
+            float scale_factor= 500;
 
             float term_rph = (1.0 / rph_intial);
             float norm_dx = dx/dist_f;
