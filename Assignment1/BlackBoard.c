@@ -33,7 +33,7 @@ int H = 0, W = 0;
 int wh = 0, ww = 0;
 bool running = true;
 bool skip_drone_update = false;
-
+bool repulsion_sent = false;
 Point obstacles[MAX_ITEMS];
 int obs_head = 0;
 int obs_count = 0;
@@ -177,7 +177,8 @@ int main(int argc, char *argv[]) {
     char format_stringOb[100] = "%d,%d";
     char format_stringTa[100] = "%d,%d";  
     
-    int dx,dy,distance;
+    int dx,dy;
+    float distance;
 
     fd_set readfds;
     int maxfd = fdToBB;
@@ -403,7 +404,7 @@ int main(int argc, char *argv[]) {
 
         }
         
-        /*if (x_curr >= ww - 1) {
+        if (x_curr >= ww - 1) {
             x_curr = ww - 1;
             x_prev = x_curr; x_prev2 = x_curr;
             snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);        
@@ -424,7 +425,7 @@ int main(int argc, char *argv[]) {
             snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);      
             write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
             
-        }*/
+        }
 
         // Draw Obstacles while checking if we having an closeness of a drone
         for(int i=0; i<obs_count; i++) {
@@ -436,86 +437,102 @@ int main(int argc, char *argv[]) {
             dy =  y_curr - obstacles[i].y;
             distance = sqrt(pow(dx, 2) + pow(dy, 2));
             
-
-            if(distance < rph_intial && distance > 0.1){
-                if(x_curr < obstacles[i].x ){
+            if (!repulsion_sent) { 
+                if(distance < rph_intial && distance > 1.0){
+                    //change where you want to put it
+                    snprintf(sRepul, sizeof(sRepul), "%.2f,%d,%d",distance, dx, dy);
+                    write(fdRepul, sRepul, strlen(sRepul) + 1);
+                    repulsion_sent = true;
+                } else {
+                    input_key='a';
+                }
+            }
+        }            
+        
+        /*if(x_curr < obstacles[i].x ){
                     if(y_curr == obstacles[i].y){
-                        dx=dx*1;
+                        dx=dx*-1;
                     } else if(y_curr < obstacles[i].y){
                         dy=dy*1;
-                        dx=dx*1;
+                        dx=dx*-1;
                     } else {
-                        dy=dy*1;
-                        dx=dx*1;
+                        dy=dy*-1;
+                        dx=dx*-1;
                     }
                 } else if(x_curr > obstacles[i].x){
                     if(y_curr == obstacles[i].y){
-                        dx=dx*-1;
+                        dx=dx*1;
                     } else if(y_curr < obstacles[i].y){
-                        dy=dy*-1;
-                        dx=dx*-1;
+                        dy=dy*1;
+                        dx=dx*1;
                     } else {
                         dy=dy*-1;
-                        dx=dx*-1;
+                        dx=dx*1;
                     }
                 } else {
                     if(y_curr > obstacles[i].y){
-                        dy=dy*1;
-                    }else if(y_curr < obstacles[i].y){
                         dy=dy*-1;
+                    }else if(y_curr < obstacles[i].y){
+                        dy=dy*1;
                     }
-                }//change where you want to put it
-                snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
-                write(fdRepul, sRepul, strlen(sRepul) + 1);
-            } else{
-                input_key='a';
-            }
-            input_key=' ';
-        }            
-        
+                }*/
 
         // Check for boundary repulsion
-        if (x_curr < rph_intial) {
+        // Only check boundaries if NO obstacle repulsion was sent
+        if (!repulsion_sent) {
+            // Left boundary
+            if (x_curr < rph_intial) {
+                distance = x_curr;
+                if (distance < 1.0) distance = 1.0;
+                dx = (int)distance;  
+                dy = 0;
+                
+                snprintf(sRepul, sizeof(sRepul), "%.2f,%d,%d", distance, dx, dy);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);
+                repulsion_sent = true;
+                
+                dprintf(STDERR_FILENO, "BB: Left boundary repulsion - dist=%.2f\n", distance);
+            }
+            // Right boundary
+            else if (x_curr > (ww - rph_intial)) {
+                distance = ww - x_curr;
+                if (distance < 1.0) distance = 1.0;
+                dx = -(int)distance;  // CORRECTED: Negative = push LEFT away from right wall
+                dy = 0;
+                
+                snprintf(sRepul, sizeof(sRepul), "%.2f,%d,%d", distance, dx, dy);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);
+                repulsion_sent = true;
+                
+                dprintf(STDERR_FILENO, "BB: Right boundary repulsion - dist=%.2f\n", distance);
+            }
             
-            distance= (int)x_curr;
-            if (distance < 1){
-                distance=1;
+            // Top boundary
+            if (y_curr < rph_intial && !repulsion_sent) {
+                distance = y_curr;
+                if (distance < 1.0) distance = 1.0;
+                dx = 0;
+                dy = (int)distance;  // CORRECTED: Positive = push DOWN away from top wall
+                
+                snprintf(sRepul, sizeof(sRepul), "%.2f,%d,%d", distance, dx, dy);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);
+                repulsion_sent = true;
+                
+                dprintf(STDERR_FILENO, "BB: Top boundary repulsion - dist=%.2f\n", distance);
             }
-            dx = -distance;
-            dy =0;
-            
-            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        } else if (x_curr > (ww - rph_intial)) {
-            distance = ww - (int)x_curr;
-            if (distance < 1){
-                distance=1;
+            // Bottom boundary
+            else if (y_curr > (wh - rph_intial) && !repulsion_sent) {
+                distance = wh - y_curr;
+                if (distance < 1.0) distance = 1.0;
+                dx = 0;
+                dy = -(int)distance;  // CORRECTED: Negative = push UP away from bottom wall
+                
+                snprintf(sRepul, sizeof(sRepul), "%.2f,%d,%d", distance, dx, dy);
+                write(fdRepul, sRepul, strlen(sRepul) + 1);
+                repulsion_sent = true;
+                
+                dprintf(STDERR_FILENO, "BB: Bottom boundary repulsion - dist=%.2f\n", distance);
             }
-            int dx = distance;
-            int dy = 0;
-            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        }
-
-        if (y_curr < rph_intial) {
-            distance= (int)y_curr;
-            if (distance < 1){
-                distance=1;
-            }
-            dy = -distance;
-            dx =0;
-            
-            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
-        } else if (y_curr > (wh - rph_intial)) {
-            distance = wh - (int)y_curr;
-            if (distance < 1){
-                distance=1;
-            }
-            dy = distance;
-            dx = 0;
-            snprintf(sRepul, sizeof(sRepul), "%d,%d,%d",distance, dx, dy);
-            write(fdRepul, sRepul, strlen(sRepul) + 1);
         }
             
         /*if(distance < rph_intial){
