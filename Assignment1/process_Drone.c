@@ -264,8 +264,11 @@ int main(int argc, char *argv[])
         
 
         if (repul){
-            boost_level=0;
-            active_key = ' ';  // Stop the engine
+            // Do not zero out active_key; blend repulsion with current thrust.
+            // Optionally gently reduce boost if extremely close to source.
+            if (distance < rph_intial * 0.3 && boost_level > 0) {
+                boost_level--; // soft brake only when very near
+            }
         }
 
         float multiplier = 1.0 + (boost_level * 0.2);
@@ -292,29 +295,29 @@ int main(int argc, char *argv[])
         float MAX_REPULSION = 10.0;
 
         if (repul){
-
             float dist_f = distance;
+            if (dist_f < 1.0) dist_f = 1.0;
 
-            //this is the bridge between physics and pixels 
-            float scale_factor= 500;
+            // Bridge between physics and pixels (tunable scale)
+            float scale_factor = 500.0f;
+            float term_rph = (1.0f / rph_intial);
+            float norm_dx = dx / dist_f;
+            float norm_dy = dy / dist_f;
 
-            float term_rph = (1.0 / rph_intial);
-            float norm_dx = dx/dist_f;
-            float norm_dy = dy/dist_f;
-                        
-            float repulsion_force= scale_factor*eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
+            float repulsion_force = scale_factor * eta_intial * (1.0f / (dist_f * dist_f)) * ((1.0f / dist_f) - term_rph);
 
-            //if (repulsion_force > MAX_REPULSION) repulsion_force = MAX_REPULSION;
+            // Clamp extreme spikes
+            if (repulsion_force > MAX_REPULSION) repulsion_force = MAX_REPULSION;
+            if (repulsion_force < -MAX_REPULSION) repulsion_force = -MAX_REPULSION;
+
             float repul_x = repulsion_force * norm_dx;
             float repul_y = repulsion_force * norm_dy;
 
-            // Add repulsion (Push away), it has its own sign to be repul
+            // Blend with propulsion (do not overwrite). If opposing, partial cancel occurs naturally.
             total_fx += repul_x;
             total_fy += repul_y;
 
-            dprintf(STDERR_FILENO, "DRONE: Repulsion - dist=%.2f, Fmag=%.4f, Fx=%.4f, Fy=%.4f\n",
-            dist_f, repulsion_force, repul_x, repul_y);
-            repul=false;
+            repul = false;
         }
     
         float denom = mass + (k_intial * T);
