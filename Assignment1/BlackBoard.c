@@ -451,34 +451,6 @@ int main(int argc, char *argv[]) {
                 } 
             }
         }            
-        
-        /*if(x_curr < obstacles[i].x ){
-                    if(y_curr == obstacles[i].y){
-                        dx=dx*-1;
-                    } else if(y_curr < obstacles[i].y){
-                        dy=dy*1;
-                        dx=dx*-1;
-                    } else {
-                        dy=dy*-1;
-                        dx=dx*-1;
-                    }
-                } else if(x_curr > obstacles[i].x){
-                    if(y_curr == obstacles[i].y){
-                        dx=dx*1;
-                    } else if(y_curr < obstacles[i].y){
-                        dy=dy*1;
-                        dx=dx*1;
-                    } else {
-                        dy=dy*-1;
-                        dx=dx*1;
-                    }
-                } else {
-                    if(y_curr > obstacles[i].y){
-                        dy=dy*-1;
-                    }else if(y_curr < obstacles[i].y){
-                        dy=dy*1;
-                    }
-                }*/
 
         // Check for boundary repulsion
         // Only check boundaries if NO obstacle repulsion was sent
@@ -537,65 +509,7 @@ int main(int argc, char *argv[]) {
                 //dprintf(STDERR_FILENO, "BB: Bottom boundary repulsion - dist=%.2f\n", distance);
             }
         }
-            
-        /*if(distance < rph_intial){
-                int ch_repel;
-                if(x_curr < obstacles[i].x ){
-                    if(y_curr == obstacles[i].y){
-                        dx=dx*1;
-                    } else if(y_curr < obstacles[i].y){
-                        dy=dy*1;
-                        dx=dx*1;
-                    } else {
-                        dy=dy*1;
-                        dx=dx*1;
-                    }
-                } else if(x_curr > obstacles[i].x){
-                    if(y_curr == obstacles[i].y){
-                        dx=dx*-1;
-                    } else if(y_curr < obstacles[i].y){
-                        dy=dy*-1;
-                        dx=dx*-1;
-                    } else {
-                        dy=dy*-1;
-                        dx=dx*-1;
-                    }
-                } else {
-                    if(y_curr > obstacles[i].y){
-                        dy=dy*1
-                    }else if(y_curr < obstacles[i].y){
-                        dy=dy*-1
-                    }
-                }*/
-                
-                /*if(distance < rph_intial){
-                int ch_repel;
-                if(x_curr < obstacles[i].x ){
-                    if(y_curr == obstacles[i].y){
-                        ch_repel = 's';
-                    } else if(y_curr < obstacles[i].y){
-                        ch_repel = 'w';
-                    } else {
-                        ch_repel = 'x';
-                    }
-                } else if(x_curr > obstacles[i].x){
-                    if(y_curr == obstacles[i].y){
-                        ch_repel = 'f';
-                    } else if(y_curr < obstacles[i].y){
-                        ch_repel = 'r';
-                    } else {
-                        ch_repel = 'v';
-                    }
-                } else {
-                    if(y_curr > obstacles[i].y){
-                        ch_repel = 'c';
-                    }else if(y_curr < obstacles[i].y){
-                        ch_repel = 'e';
-                    }
-                }*/
-                //change where you want to put it
-                /*snprintf(sRepul, sizeof(sRepul), "%c,%d,%d,%d", ch_repel,distance, dx, dy);
-                write(fdRepul, sRepul, strlen(sRepul) + 1);*/
+        
         // Draw Targets
         for(int i=0; i<tar_count; i++) {
              if (targets[i].x > 0 && targets[i].y > 0) 
