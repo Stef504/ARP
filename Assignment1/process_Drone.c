@@ -296,13 +296,13 @@ int main(int argc, char *argv[])
             float dist_f = distance;
 
             //this is the bridge between physics and pixels 
-            float scale_factor= 500;
+            float scale_factor = 500;
 
             float term_rph = (1.0 / rph_intial);
             float norm_dx = dx/dist_f;
             float norm_dy = dy/dist_f;
                         
-            float repulsion_force= scale_factor*eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
+            float repulsion_force= scale_factor * eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
 
             //if (repulsion_force > MAX_REPULSION) repulsion_force = MAX_REPULSION;
             float repul_x = repulsion_force * norm_dx;
