@@ -22,7 +22,6 @@ int main(int argc, char *argv[])
 
     //Convert the argument to an integer file descriptor
     int fdIn = atoi(argv[1]);
-    char buffer[100];
     char *path_bb = argv[2];
     int fdIn_BB = open(path_bb, O_WRONLY);
     if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }

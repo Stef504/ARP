@@ -1,31 +1,43 @@
-ReadMe
+## 2. Active Components
 
-What each process does:
+### 🖥️ Master Process (`main.c`)
 
-Main(Master):
-This is the master process responsible for creating the concurrent program. It uses the primitive fork() and execlp() to execute each process. Other primitive uesed are pipes() this allows for the communication between processes. The respective pipes (open or closed) are stated with each fork. The wait primitive is used at the end of the code to ensure that all parents wait for their child to finish before returning.  
-Main is then responsible for executing the blackboard, the drone physics, the input handler, the obstacles and the target generation.
+This is the master process tasked with generating the concurrent program. It employs the primitive fork() and execlp() functions to initiate each process. Additional primitives employed include pipes(), which assist in the communication between processes. Pipe() also enables the reading and writing of data to a designated pipe. The corresponding pipes (opening or closing) are indicated at each fork and all pipes are closed at the end of the code to ensure the program does not freeze / enter deadlocking. The wait primitive is employed at the end of the code to guarantee that all parent processes await the completion of their child processes before returning.
 
-The Black Board:
-This is the proccess for inter process communication between all processes. All information of the targets, obstacles, drone physics and input is sent to the black board so it can share certain messages to respective processes. This is all done through the intialization of pipes which were given from command line arguments (sent from Main) and the primitive select().
-The primitive select() allows us to avoid race-condition. Pipe() allows for us to read/write data to a specific pipe.
+Main is responsible for executing the blackboard, drone physics, input handling, and obstacle and target generation.
 
-The drone physics communicates its position to the black board. The blackboard will move the drone on the window.
-The black board will communicate to the drone if the drone is near an obstacle.
-The obstacles and targert generation send its coordinates to the black board to draw on the window and identify if the drone is in proximity to the drone.
-Input commands like 'a','q','u' are sent to the blackboard via a named pipe. 
-Reads from parameter file
+The use of unnamed pipes() allows for fast and simple communication between related processes. While the use of the named pipes (FIFOs) allows for communication between unrelated processes.
 
-Drone Physics:
-Calculates the drone physics (movement and repulsion forces) and sends its coodinates to the black board. It initializes which pipes it needs which are given from the command line arguments (send from main) and uses the primitive select().
+### 📊 Server / Blackboard (`BlackBoard.c`)
+This outlines the procedure for interprocess communication among all processes. All data on targets, obstacles, drone physics, and inputs is transmitted to the blackboard to facilitate the broadcasting of specific data to the corresponding processes. The process is executed via the initialisation of pipes provided through command line parameters (transmitted from Main) and the basic select() function.
 
-Input:
-Uses the signal() primitive to ensure that if the input pipe is broken/closed it will not terminate the program immediately. Instead it ignores the SIGPIPE and allows the client the handle the error to ensure restore the canonical mode. 
+The basic select() function enables the prevention of race conditions. 
 
-Obstacle and Target Generation: 
-Reads from the parameter file, intializes pipes which were given from command line arguments (sent from Main) and writes the co-ordinates every 7s to the black board. Its random generation based off the time and PID so that its sequence is unique. 
+Key algorithm of the blackboard:
+- The blackboard additionally retrieves information from the parameter file.
+- The window adjusts based on the user's preferences; however, each adjustment causes a reset of the drone's position.
+- The drone's physics module transmits its location to the blackboard. The blackboard will display the drone's location on the window.
+- The blackboard will notify the drone of its proximity to obstacles, its initial location at the game's starting point, and when the drone is restored to the home position.
+- The obstacles and target generation transmit their coordinates to the blackboard to render on the window and establish if the drone is near the obstacle.
+- Commands such as 'a', 'q', and 'u' are transmitted to the blackboard via a named pipe.
+- Obstacles and targets are generated dynamically following a cumulative total of 20 generations.
+- Obstacles, targets and the drone is clamped to the window size to adhere to the game boundaries
 
-List of Components, Directories, Files:
+
+### 🕹️ Drone Process (`process_Drone.c`)
+The drone's physics (motion and repulsive forces) are computed and its coordinates are transmitted to the blackboard. It initialises the requisite pipes, as specified by the command line arguments provided by the main function, and utilises the primitive select() for reading from the blackboard and input processes.
+
+### Input Process (`process_In.c`)
+It employs the signal (SIGPIPE, SIG_IGN) mechanism to guarantee that the program does not terminate immediately if the input pipe is disrupted or closed. Instead, it disregards the SIGPIPE and allows the client to manage the error to ensure the resetting of the canonical mode. 
+
+The process sends the user's input directly to the drone and the blackboard over distinct channels. The modification of the canonical mode removed the necessity for the user to press ENTER after each input.
+
+### 🚧 Obstacle and 🎯 Target Generator(`process_Ob.c`, `process_Ta.c`)
+The process reads the parameter file, initialises pipes provided through command-line options (transmitted from Main), and publishes coordinates. They are also clamped to the current window size and adjust accordingly.
+Target coordinates are generated and published every 7 seconds on the blackboard. While obstacle coordinates are generated and publsihed every 5 seconds to the blackboard. 
+The different timings ensure that generations do not appear at once. The random generation relies on the time and PID, ensuring a unique sequence for generation.
+
+## 3. List of Files
 /Assignment1
 |-main.c
 |-BlackBoard.c
@@ -35,8 +47,39 @@ List of Components, Directories, Files:
 |-process_Ob.c
 |-Parameter_File.txt
 |-ReadMe.md
+|-Makefile
 |-TODO
 
-Makefile:
+## 🛠️ Installation and Running
+
+**1. Prerequisites**
+Ensure all source files (`.c`) and the `Makefile` are in the same directory.
+
+**2. Compilation**
+Open your terminal in the project folder and run the build script:
+```bash
+make
+./main
+```
+
+## 🕹️Operational Instructions
+'e' - moves up
+'c' - moves down
+'f' - moves right
+'s' - moves left
+'r' - moves north-eat
+'x' - moves south-west
+'w' - moves west-north
+'v' - moves east-south
+
+'d' - breaks
+'a' - reset
+'q' - quits the game
+'p' - pauses the game
+'u' - unpauses the game
+
+
+
+
 
 

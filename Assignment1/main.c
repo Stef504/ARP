@@ -13,11 +13,10 @@
 int main()
 {
     int fdIn[2], fdOb[2], fdTa[2],fdToBB[2], fdFromBB[2],fdRepul[2];
-    mkfifo("/tmp/pipe_blackboard_input", 0666);
- 
-    char buf[100];
-    int toggle = 0;
 
+    const char * pipe_path = "/tmp/pipe_blackboard_input";
+    unlink(pipe_path);
+ 
 
  //check if pipes initialize
     if (pipe(fdIn) == -1) {
@@ -50,6 +49,10 @@ int main()
         exit(1);
     }
     
+    if (mkfifo(pipe_path, 0666) == -1) {
+        perror("Failed to create named pipe");
+        exit(1);
+    }
 
     sleep(2);
 
@@ -246,12 +249,32 @@ int main()
     
     }
 
+    //closing all pipes
+    // Close Input Pipes
+    close(fdIn[0]); close(fdIn[1]);
+
+    // Close Obstacle Pipes
+    close(fdOb[0]); close(fdOb[1]);
+
+    // Close Target Pipes
+    close(fdTa[0]); close(fdTa[1]);
+
+    // Close Blackboard communication Pipes
+    close(fdToBB[0]); close(fdToBB[1]);
+    close(fdFromBB[0]); close(fdFromBB[1]);
+
+    // Close Repulsion Pipes
+    close(fdRepul[0]); close(fdRepul[1]);
+
     // Wait for all child processes
     wait(NULL);
     wait(NULL);
     wait(NULL);
     wait(NULL);
     wait(NULL);
+
+    //unlink the named pipe
+    unlink(pipe_path);
 
     return 0;
 }

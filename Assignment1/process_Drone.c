@@ -121,10 +121,8 @@ int main(int argc, char *argv[])
     struct timeval tv={0,0};
     int retval;
     char strIn[135],sOut[135],strFromBB[100], strRepul[50]; 
-    char sIn[10],sRepul[10];
+    char sIn[10];
 
-    int x_coord_Ob, y_coord_Ob;
-    int x_coord_Ta, y_coord_Ta;
     float distance=0;
     float dx=0,dy=0;
 
@@ -289,14 +287,14 @@ int main(int argc, char *argv[])
 
         total_fx= Fx;
         total_fy= Fy;
-        float MAX_REPULSION = 10.0;
+        float MAX_REPULSION = 5.0;
 
         if (repul){
 
             float dist_f = distance;
 
             //this is the bridge between physics and pixels 
-            float scale_factor = 500;
+            float scale_factor = 200;
 
             float term_rph = (1.0 / rph_intial);
             float norm_dx = dx/dist_f;
@@ -304,7 +302,7 @@ int main(int argc, char *argv[])
                         
             float repulsion_force= scale_factor * eta_intial * 1/pow(dist_f,2) * (1/dist_f - term_rph);
 
-            //if (repulsion_force > MAX_REPULSION) repulsion_force = MAX_REPULSION;
+            if (repulsion_force > MAX_REPULSION) repulsion_force = MAX_REPULSION;
             float repul_x = repulsion_force * norm_dx;
             float repul_y = repulsion_force * norm_dy;
 

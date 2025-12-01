@@ -171,9 +171,8 @@ int main(int argc, char *argv[]) {
 
     struct timeval tv;
     int retval;
-    char strToBB[135],strFromBB[135], strOb[100], strTa[100], strIn[100]; 
-    char sToBB[135],sFromBB[135], sOb[135], sTa[135],sIn[10],sRepul[40];
-    char format_stringIn[100] = "%s";
+    char strOb[100], strTa[100], strIn[100]; 
+    char sToBB[135],sFromBB[135],sIn[10],sRepul[40];
     char format_stringOb[100] = "%d,%d";
     char format_stringTa[100] = "%d,%d";  
     
@@ -189,16 +188,11 @@ int main(int argc, char *argv[]) {
     // Persistent Coordinates (Initialize off-screen or valid default)
     // Removed single coordinates in favor of arrays
                    
-    int newH = H - wh;
-    int newW = W - ww;
 
     float x_curr = ww / 2.0;
-    float x_prev = ww / 2.0;
-    float x_prev2 = ww / 2.0;
 
     float y_curr = wh / 2.0;
-    float y_prev = wh / 2.0;
-    float y_prev2 = wh / 2.0;
+    
 
     // Initial handshake with drone to get starting position
     snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);
@@ -306,6 +300,15 @@ int main(int argc, char *argv[]) {
                     strOb[bytes] = '\0';
                     int new_x, new_y;
                     sscanf(strOb, format_stringOb, &new_x, &new_y);
+
+                    //apply to current window size
+                    float ratio_x = (float)new_x / (float)window_width;
+                    float ratio_y = (float)new_y / (float)window_height;
+                    
+                    //Aplies to current window size
+                    new_x=ratio_x*ww;
+                    new_y=ratio_y*wh;
+
                     // Clamp to window dimensions to prevent vanishing
                     if (new_x >= ww - 1) new_x = ww - 2;
                     if (new_y >= wh - 1) new_y = wh - 2;
@@ -326,6 +329,14 @@ int main(int argc, char *argv[]) {
                     strTa[bytes] = '\0';
                     int new_x, new_y;
                     sscanf(strTa, format_stringTa, &new_x, &new_y);
+                    //apply to current window size
+                    float ratio_x = (float)new_x / (float)window_width;
+                    float ratio_y = (float)new_y / (float)window_height;
+                    
+                    //Aplies to current window size
+                    new_x=ratio_x*ww;
+                    new_y=ratio_y*wh;
+                    
                     // Clamp to window dimensions to prevent vanishing
                     if (new_x >= ww - 1) new_x = ww - 2;
                     if (new_y >= wh - 1) new_y = wh - 2;
@@ -365,7 +376,7 @@ int main(int argc, char *argv[]) {
             fd_set pause_fds;
             struct timeval pause_tv;
             int pause_ret;
-            int pause_ch = -1;
+            
             
 
             while (running) {
@@ -405,9 +416,10 @@ int main(int argc, char *argv[]) {
 
         }
         
+        //clamping drone to window size
         if (x_curr >= ww - 1) {
             x_curr = ww - 1;
-            x_prev = x_curr; x_prev2 = x_curr;
+            
             snprintf(sFromBB, sizeof(sFromBB), "%.0f,%.0f", x_curr, y_curr);        
             write(fdFromBB, sFromBB, strlen(sFromBB) + 1);
         } else if (x_curr <= 0) {
