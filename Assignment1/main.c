@@ -251,6 +251,7 @@ int main()
     wait(NULL);
     wait(NULL);
     wait(NULL);
+    wait(NULL);
 
     return 0;
 }

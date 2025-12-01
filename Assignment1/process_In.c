@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
                 
                 if (c == 'q') {
                 // --- 3. RESTORE TERMINAL ---
-                // This is critical, or your terminal will be "broken" after
+                // This is critical, or the terminal will be "broken" after
                 tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
                 close(fdIn_BB);
                 close(fdIn);
