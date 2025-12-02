@@ -115,8 +115,7 @@ int main(int argc, char *argv[])
 
     // Avoid process termination on broken pipe and print FD debug
     signal(SIGPIPE, SIG_IGN);
-    dprintf(STDERR_FILENO, "DRONE: start fds fdIn=%d fdFromBB=%d fdToBB=%d\n",
-            fdIn, fdFromBB, fdToBB);
+    dprintf(STDERR_FILENO, "DRONE: start fds fdIn=%d fdFromBB=%d fdToBB=%d\n",fdIn, fdFromBB, fdToBB);
     
     struct timeval tv={0,0};
     int retval;
