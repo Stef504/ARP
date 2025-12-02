@@ -152,11 +152,17 @@ int main(int argc, char *argv[]) {
     keypad(win, TRUE);
     wtimeout(win, 50); // wait up to 50 ms in wgetch, then continue to select()
 
+    // Standardized exit codes
+    #define USAGE_ERROR 64
+    #define OPEN_FAIL 66
+    #define EXEC_FAIL 127
+    #define RUNTIME_ERROR 70
+
     if (argc < 7) 
     {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
         endwin();
-        exit(1);
+        exit(USAGE_ERROR);
     }
 
     // Convert the argument to an integer file descriptor
@@ -166,7 +172,7 @@ int main(int argc, char *argv[]) {
     int fdTa = atoi(argv[4]);    
     char *path_bb = argv[5];
     int fdIn_BB = open(path_bb, O_RDONLY | O_NONBLOCK);
-    if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }
+    if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return OPEN_FAIL; }
     int fdRepul =atoi(argv[6]);
 
     struct timeval tv;
@@ -535,6 +541,7 @@ int main(int argc, char *argv[]) {
         
     }
     // Cleanup
+    close(fdIn_BB);
     delwin(win);
     endwin();
     return 0;

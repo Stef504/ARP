@@ -15,16 +15,22 @@ int main(int argc, char *argv[])
 {
     signal(SIGPIPE, SIG_IGN);
 
-    if (argc < 3) {
+    // Standardized exit codes
+    #define USAGE_ERROR 64
+    #define OPEN_FAIL 66
+    #define EXEC_FAIL 127
+    #define RUNTIME_ERROR 70
+
+    if (argc < 2) {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
-        exit(1);
+        return USAGE_ERROR;
     }
 
     //Convert the argument to an integer file descriptor
     int fdIn = atoi(argv[1]);
     char *path_bb = argv[2];
     int fdIn_BB = open(path_bb, O_WRONLY);
-    if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return 1; }
+    if (fdIn_BB == -1) { perror("Failed to open BB Pipe"); return OPEN_FAIL; }
 
     // Setting up the terminal to read single characters without waiting for Enter
     struct termios old_tio, new_tio;

@@ -100,11 +100,17 @@ void Parameter_File() {
 
 int main(int argc, char *argv[]) 
 {
+    // Standardized exit codes
+    #define USAGE_ERROR 64
+    #define OPEN_FAIL 66
+    #define EXEC_FAIL 127
+    #define RUNTIME_ERROR 70
+
     Parameter_File();
 
     if (argc < 5) {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
-        exit(1);
+        exit(USAGE_ERROR);
     }
 
     // Convert the argument to an integer file descriptor

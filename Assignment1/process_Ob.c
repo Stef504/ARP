@@ -23,10 +23,16 @@ static long current_millis() {
 
 // Same function as in BlackBoard, but read only the first two lines of the parameter file
 void Parameter_File() {
+    // Standardized exit codes
+    #define USAGE_ERROR 64
+    #define OPEN_FAIL 66
+    #define EXEC_FAIL 127
+    #define RUNTIME_ERROR 70
+
     FILE* file = fopen("Parameter_File.txt", "r");
     if (file == NULL) {
         perror("Error opening Parameter_File.txt");
-        return;
+        exit(OPEN_FAIL);
     }
 
     char line[256];
@@ -65,7 +71,7 @@ int main(int argc, char *argv[])
 
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <fd>\n", argv[0]);
-        exit(1);
+        exit(USAGE_ERROR);
     }
 
     // Convert the argument to an integer file descriptor

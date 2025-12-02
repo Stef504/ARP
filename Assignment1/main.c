@@ -266,12 +266,25 @@ int main()
     // Close Repulsion Pipes
     close(fdRepul[0]); close(fdRepul[1]);
 
-    // Wait for all child processes
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
+    // Wait for all child processes with status checking
+    int status;
+    int failures = 0;
+    pid_t wpid;
+    while ((wpid = wait(&status)) > 0) {
+        if (WIFEXITED(status)) {
+            int code = WEXITSTATUS(status);
+            if (code != 0) {
+                fprintf(stderr, "Child %d exited with code %d\n", wpid, code);
+                failures++;
+            }
+        } else if (WIFSIGNALED(status)) {
+            fprintf(stderr, "Child %d terminated by signal %d\n", wpid, WTERMSIG(status));
+            failures++;
+        }
+    }
+    if (failures) {
+        fprintf(stderr, "One or more children failed (%d)\n", failures);
+    }
 
     //unlink the named pipe
     unlink(pipe_path);
