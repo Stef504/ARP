@@ -46,7 +46,7 @@ Key algorithm of the blackboard:
 - The drone will move continously in one direction until either of the conditions are met:
     1. Brakes are applied
     2. Rest is applied
-    3. An appossing direction was entered
+    3. An opposing direction was entered
 - The speed of the drone increases in increments of 20%. A maximum of two boosts are applied. This relates to three consecutive clicks of the same letter. The drone can only slow down in the current direction if its opposite button is pressed 3 times. 
 
 - The data accepted from the BlackBoard (**fdFromBB** pipe) is as listed: 

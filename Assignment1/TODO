@@ -1,7 +1,0 @@
-TODO List:
-- Implement "stack" structure for obstacles and targets
-
-Next assignments:
-- Add watchdog process
-- Add Logfile
-- Handle repulsive forces sent by obstacles and the window border
