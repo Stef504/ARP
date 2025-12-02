@@ -1,4 +1,7 @@
-## 2. Active Components
+## Architecture Sketch
+[📄 Click here to view the sketch of the architecture (PDF)](./Sketch_of_Architecture.pdf)
+
+## Active Components
 
 ### 🖥️ Master Process (`main.c`)
 
