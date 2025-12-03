@@ -271,8 +271,10 @@ int main()
     int failures = 0;
     pid_t wpid;
 
+    //checking if the child status has changed
     while ((wpid = wait(&status)) > 0) {
-        //if child returned normally through exit() or return 0;
+
+        //how child terminated, reads from status. Either normally exit()/ return or code
         if (WIFEXITED(status)) { 
             int code = WEXITSTATUS(status);
             
@@ -297,11 +299,12 @@ int main()
                 
                 break; // Exit the wait loop
             }
-            
+            //failures
             if (code != 0) {
                 fprintf(stderr, "Child %d exited with code %d\n", wpid, code);
                 failures++;
             }
+            //process was terminated through signals
         } else if (WIFSIGNALED(status)) {
             fprintf(stderr, "Child %d terminated by signal %d\n", wpid, WTERMSIG(status));
             failures++;
