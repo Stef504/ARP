@@ -95,6 +95,10 @@ int main(int argc, char *argv[])
         }
         usleep(100000); // Sleep 100ms to avoid busy-waiting
     }
+
+    //clean up
+    close(fdOb);
+    return 0;
  
 }
             

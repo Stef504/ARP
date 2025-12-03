@@ -222,8 +222,9 @@ int main(int argc, char *argv[])
         if (input_key != ' ' && input_key != 0) {
 
             // Case A: Quit
-            if (input_key == 'q') running = false;
-
+            if (input_key == 'q') {
+                running = false;
+            }
             // Case B: Brake (Stop Engine)
             else if (input_key == 'd') {
                 boost_level = 0;
@@ -292,7 +293,7 @@ int main(int argc, char *argv[])
 
         total_fx= Fx;
         total_fy= Fy;
-        float MAX_REPULSION = 5.0;
+        float MAX_REPULSION = 10.0;
 
         if (repul){
 
@@ -348,4 +349,12 @@ int main(int argc, char *argv[])
 
     usleep(10000);
 }
+
+    // Close all file descriptors to signal EOF to parent
+    close(fdIn);
+    close(fdFromBB);
+    close(fdToBB);
+    close(fdRepul);
+
+    return 0;
 }

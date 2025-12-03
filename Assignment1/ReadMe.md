@@ -5,7 +5,14 @@
 
 ### 🖥️ Master Process (`main.c`)
 
-This is the master process tasked with generating the concurrent program. It employs the primitive fork() and execlp() functions to initiate each process. Additional primitives employed include pipes(), which assist in the communication between processes. Pipe() enables the reading and writing of data to designated pipes. The corresponding pipes (opening or closing) are indicated at each fork and all pipes are closed at the end of the code to ensure the program does not freeze / enter deadlocking. The wait() primitive is employed at the end of the code to guarantee that all parent processes await the completion of their child processes before returning.
+This is the master process tasked with generating the concurrent program. It employs the primitive fork() and execlp() functions to initiate each process. Additional primitives employed include pipes(), which assist in the communication between processes. Pipe() enables the reading and writing of data to designated pipes. The corresponding pipes (opening or closing) are indicated at each fork and all pipes are closed at the end of the code to ensure the program does not freeze / enter deadlocking. The wait() primitive is employed at the end of the code to guarantee that all parent processes await the completion of their child processes before returning. 
+
+The kill(*process_name*, SIGTERM) signal sends signals to all other processes to terminate. This is executed when the drone process exits. If this signal did not work, the kill(*process_name*, SIGKILL) signal will then forcefully kill all other processes. This primitive is important in shutting down the entire code smoothly.
+
+The respective **POSIX Macros** used in Main are: 
+    - `WIFEXITED` - used to identify how each child process was terminated
+    - `WEXITSTATUS` - used to extract the type of exit code 
+    - `WIFSIGNALED` - if the child process was terminated by a signal
 
 Main is responsible for executing the blackboard, drone physics, input handling, and obstacle and target generation.
 
@@ -23,7 +30,7 @@ The basic select() function enables the prevention of race conditions.
     - *refer to the Drone Process*
 
 - The data accepted from **fdIn_BB** named pipe is as listed:
-    -Commands such as 'a', 'q', and 'u'. *see operation instructions* 
+    - Commands such as 'a', 'q', and 'u'. *see operation instructions* 
 
 - The data accepted from the **fdOb, fdTa** pipes are as listed:
     - Coordinates of obstacles and targets
@@ -38,6 +45,7 @@ Key algorithm of the blackboard:
 - The obstacles and target generation transmit their coordinates to the blackboard to render on the window and establish if the drone is near the obstacle.
 - Obstacles and targets are generated dynamically following a cumulative total of 20 generations.
 - Obstacles, targets and the drone is clamped to the window size to adhere to the game boundaries
+- The system utilises standard exit codes, and upon completion of the code, it closes all associated pipes.
 
 
 ### 🕹️ Drone Process (`process_Drone.c`)
@@ -71,6 +79,7 @@ Key algorithm of the blackboard:
     - The signal (SIGPIPE, SIG_IGN) mechanism to guarantee that the program does not terminate immediately if the input pipe is disrupted or closed
     - The data written to the BlackBoard and if it failed to write
     - The distance the repulsion force reacted, and the amount of force applied
+    - The system utilises standard exit codes, and upon completion of the code, it closes all associated pipes.
 
 
 ### Input Process (`process_In.c`)
@@ -79,6 +88,7 @@ Key algorithm of the blackboard:
 
 Safety Factor:
 - Signal (SIGPIPE, SIG_IGN) mechanism to guarantee that the program does not terminate immediately if the input pipe is disrupted or closed. Instead, it disregards the SIGPIPE and allows the client to manage the error to ensure the resetting of the canonical mode. 
+- The system utilises standard exit codes, and upon completion of the code, it closes all associated pipes.
 
 
 ### 🚧 Obstacle and 🎯 Target Generator(`process_Ob.c`, `process_Ta.c`)
@@ -86,6 +96,7 @@ Safety Factor:
 - The generation is clamped to the current window size but is adjusted accordingly in the BlackBoard.
 - Target coordinates are generated and published every 7 seconds on the blackboard. 
 - While obstacle coordinates are generated and publsihed every 5 seconds to the blackboard. 
+- The system utilises standard exit codes, and upon completion of the code, it closes all associated pipes.
 
 The different timings ensure that generations do not appear at once. The random generation relies on the time and PID, ensuring a unique sequence for generation. 
 The readjustment of obstacles and targets as the window changes allows for an even spread of obstacles and targets.
@@ -101,7 +112,7 @@ The readjustment of obstacles and targets as the window changes allows for an ev
 |-Parameter_File.txt
 |-ReadMe.md
 |-Makefile
-|-TODO
+|-Sketch_of_Architecture.pdf
 
 ## 🛠️ Installation and Running
 
@@ -113,6 +124,10 @@ Open your terminal in the project folder and run the build script:
 ```bash
 make
 ./main
+```
+To clear executables, open your terminal in the project folder and run the following script:
+```bash
+make clean
 ```
 
 ## 🕹️Operational Instructions

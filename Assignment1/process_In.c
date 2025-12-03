@@ -86,6 +86,7 @@ int main(int argc, char *argv[])
 
     // Restore the old terminal settings
     tcsetattr(STDIN_FILENO, TCSANOW, &old_tio);
+    
     return 0;
 }
 

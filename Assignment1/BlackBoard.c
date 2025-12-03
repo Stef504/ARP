@@ -540,8 +540,15 @@ int main(int argc, char *argv[]) {
         usleep(10000); 
         
     }
+    
     // Cleanup
+    close(fdToBB);
+    close(fdFromBB);
+    close(fdOb);
+    close(fdTa);
+    close(fdRepul);
     close(fdIn_BB);
+
     delwin(win);
     endwin();
     return 0;

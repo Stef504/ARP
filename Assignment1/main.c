@@ -270,9 +270,34 @@ int main()
     int status;
     int failures = 0;
     pid_t wpid;
+
     while ((wpid = wait(&status)) > 0) {
-        if (WIFEXITED(status)) {
+        //if child returned normally through exit() or return 0;
+        if (WIFEXITED(status)) { 
             int code = WEXITSTATUS(status);
+            
+            // Check if this was the drone process
+            if (wpid == Dr) {
+                fprintf(stderr, "Drone exited, shutting down all processes...\n");
+                
+                // Kill all other child processes
+                kill(BB, SIGTERM);
+                kill(In, SIGTERM);
+                kill(Ob, SIGTERM);
+                kill(Ta,SIGTERM);
+                
+                // Small delay to let them terminate gracefully
+                usleep(100000);
+                
+                // Force kill if still alive
+                kill(BB, SIGKILL);
+                kill(In, SIGKILL);
+                kill(Ob, SIGKILL);
+                kill(Ta,SIGKILL);
+                
+                break; // Exit the wait loop
+            }
+            
             if (code != 0) {
                 fprintf(stderr, "Child %d exited with code %d\n", wpid, code);
                 failures++;
@@ -282,6 +307,10 @@ int main()
             failures++;
         }
     }
+
+    // Wait for remaining children to finish
+    while (wait(NULL) > 0);
+
     if (failures) {
         fprintf(stderr, "One or more children failed (%d)\n", failures);
     }
