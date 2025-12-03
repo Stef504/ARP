@@ -8,14 +8,19 @@
 #include <sys/wait.h>
 #include <curses.h>
 #include <sys/time.h>
+#include <errno.h>
 
 
 int main()
 {
     int fdIn[2], fdOb[2], fdTa[2],fdToBB[2], fdFromBB[2],fdRepul[2];
 
-    const char * pipe_path = "/tmp/pipe_blackboard_input";
-    unlink(pipe_path);
+    const char * pipe_path = "./pipe_blackboard_input";
+    
+    // Remove existing pipe if it exists (ignore error if it doesn't exist)
+    if (unlink(pipe_path) == -1 && errno != ENOENT) {
+        perror("Warning: Failed to remove existing pipe");
+    }
  
 
  //check if pipes initialize
@@ -99,7 +104,7 @@ int main()
         snprintf(fdRepul_str,sizeof(fdRepul),"%d",fdRepul[1]);
         
         
-        execlp("konsole", "konsole", "-e", "./BlackBoard",fdToBB_str,fdFromBB_str,fdOb_str,fdTa_str,"/tmp/pipe_blackboard_input",fdRepul_str, (char *)NULL); // launch another process if condition met
+        execlp("konsole", "konsole", "-e", "./BlackBoard",fdToBB_str,fdFromBB_str,fdOb_str,fdTa_str,"./pipe_blackboard_input",fdRepul_str, (char *)NULL); // launch another process if condition met
        
         // If exec fails
         perror("exec failed");
@@ -132,7 +137,7 @@ int main()
 
         // Execute process_P with fd[1] as a command-line argument
         
-        execlp("konsole", "konsole", "-e", "./process_In", fd_str, "/tmp/pipe_blackboard_input",(char *)NULL); // launch another process if condition met
+        execlp("konsole", "konsole", "-e", "./process_In", fd_str, "./pipe_blackboard_input",(char *)NULL); // launch another process if condition met
        
         perror("exec failed");
         exit(1);
